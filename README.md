@@ -44,7 +44,7 @@ export default defineConfig({
 
 This acts as your global layout template.
 
-```smark
+```ini
 [import = page: p{pagePath}][end]
 [DOCTYPE][end]
 [html = lang: en]
@@ -81,5 +81,3 @@ npx vite
 | `shellPath` | `string` | `"index.smark"` | The path to your main shell/layout template. |
 
 ## License
-
-MIT © [SomMark Team]
