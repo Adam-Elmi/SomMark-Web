@@ -1,0 +1,54 @@
+{
+  "name": "sommark-web",
+  "version": "1.0.0",
+  "description": "High-performance Static Site Generation for Vite powered by the SomMark engine.",
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "sommark",
+    "ssg",
+    "static-site-generator"
+  ],
+  "author": "Adam Elmi Eid",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Adam-Elmi/SomMark-Web"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "private": false,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tsup": "^8.5.1",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
+  },
+  "peerDependencies": {
+    "typescript": "^5",
+    "vite": "^5.0.0 || ^6.0.0 || ^8.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ora": "^9.4.0",
+    "picocolors": "^1.1.1",
+    "sommark": "^4.0.3"
+  }
+}
