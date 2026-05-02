@@ -32,8 +32,23 @@ Rather than just a "template engine," it acts as a **Universal Source Language**
 
 ## Quick Start
 
-### 1. Install
+### The Recommended Way
 
+The fastest way to start a new SomMark Web project is using the official CLI. This will set up a **complete, ready-to-use project template** for you:
+
+```bash
+npx create-sommark-web@latest
+```
+
+Follow the prompts to get your site running instantly.
+
+---
+
+### Manual Installation
+
+If you prefer to set things up yourself:
+
+#### 1. Install
 
 ```bash
 npm install sommark-web
@@ -46,7 +61,7 @@ bun add sommark-web
 ```
 
 
-### 2. Add to Vite
+#### 2. Add to Vite
 
 Add the plugin to your `vite.config.ts`:
 
@@ -61,7 +76,7 @@ export default defineConfig({
 });
 ```
 
-### 3. Create your Layout (`index.smark`)
+#### 3. Create your Layout (`index.smark`)
 
 ```ini
 [import = page: p{page}][end]
