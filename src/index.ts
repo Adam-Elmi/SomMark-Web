@@ -60,7 +60,8 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
       filename: shellPath,
       mapperFile: mapper,
       placeholders: {
-        pagePath: smarkFile
+        pagePath: smarkFile,
+        page: smarkFile
       },
       customProps: ["content"]
     });
@@ -72,7 +73,7 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
 
     async config(config, { command }) {
       if (command === "build") printLogo();
-      
+
       const spinner = ora(pc.dim("Scanning SomMark pages...")).start();
       const routes = await scanPages(pagesDir);
       spinner.succeed(pc.green(`Found ${routes.length} pages`));
@@ -137,9 +138,26 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
             res.end(transformed);
             return;
           } catch (err: any) {
-            console.error(`${pc.red("[SomMark Error]")} ${pc.white(pathname)}:`, err.message);
+            const errorMessage = err.stack || err.message || String(err);
+            console.error(`${pc.red("[SomMark Error]")} ${pc.white(pathname)}:`, errorMessage);
+            
+            // Wrap error in a basic HTML structure to keep the HMR client alive
+            const errorHtml = `
+              <!DOCTYPE html>
+              <html>
+                <head><title>SomMark Error</title></head>
+                <body style="background: #1a1a1a; color: #ff5555; padding: 2rem; font-family: monospace; line-height: 1.5;">
+                  <h1 style="color: #ff5555; border-bottom: 2px solid #ff5555; padding-bottom: 0.5rem;">SomMark Transpilation Error</h1>
+                  <pre style="background: #000; padding: 1.5rem; border-radius: 8px; overflow: auto; border: 1px solid #333;">${errorMessage}</pre>
+                  <p style="color: #888; margin-top: 2rem;"><strong>HMR is still active.</strong> Fix the syntax in your editor and the page will reload automatically.</p>
+                </body>
+              </html>
+            `;
+            
+            const transformed = await server.transformIndexHtml(pathname, errorHtml);
             res.statusCode = 500;
-            res.end(`SomMark Transpilation Error: ${err.message}`);
+            res.setHeader("Content-Type", "text/html");
+            res.end(transformed);
             return;
           }
         } else if (pathname.endsWith(".smark") || (pathname !== "/" && !pathname.includes(".") && !pathname.startsWith("/@vite/"))) {

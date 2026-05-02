@@ -1,82 +1,87 @@
-# SomMark Web
+<p align="center">
+  <img src="assets/logo.png" width="180" alt="SomMark Web Logo">
+</p>
 
-**High-performance Static Site Generation for Vite, powered by the SomMark engine.**
+<h1 align="center">SomMark Web</h1>
 
-SomMark Web allows you to build lightning-fast, block-based static websites using the SomMark syntax. It integrates seamlessly into the Vite ecosystem, providing file-based routing, HMR, and optimized production builds.
+<p align="center">
+  <img src="https://img.shields.io/npm/v/sommark-web?color=F80753&label=npm" alt="npm version">
+  <img src="https://img.shields.io/badge/license-MIT-blue?color=green" alt="license">
+  <a href="https://github.com/Adam-Elmi/SomMark"><img src="https://img.shields.io/badge/powered%20by-SomMark-646cff" alt="powered by sommark"></a>
+</p>
 
-## Features
+<p align="center">
+  <strong>The structural foundation for your modern web content.</strong>
+</p>
 
-- High-performance: Built on top of Bun and the high-performance SomMark engine.
-- File-Based Routing: Automatically maps `.smark` files in your pages directory to URLs.
-- Master-Level Injection: Native module system for safe, unescaped content injection.
-- Full HMR: Instant feedback in your browser when you edit your `.smark` files.
-- Zero-Config Bundling: Automatically handles asset resolution and bundling via Vite.
+---
 
-## Installation
+## What is SomMark Web?
 
-```bash
-npm install sommark-web sommark --save-dev
-# or
-bun add sommark-web sommark --dev
-```
+SomMark Web is a **lightweight web framework** and high-performance **Static Site Generation (SSG)** bridge for Vite. It is powered by the **SomMark Engine**, an extensible markup language designed to be the **structural foundation** of your content. 
+
+Rather than just a "template engine," it acts as a **Universal Source Language** that transpiles your structural intent into clean, optimized HTML.
+
+## Key Features
+
+- **Module System**: Build reusable components with a strict **Declare-then-Inject** pattern.
+- **Auto-Routing**: Just add a file to `src/pages` and it becomes a web page automatically.
+- **Fast Development**: See your changes instantly as you type.
+- **Small & Fast**: The final website is very small and loads quickly.
+- **Standard CSS**: Works with any CSS or even Tailwind.
 
 ## Quick Start
 
-### 1. Configure Vite
+### 1. Install
+
+
+```bash
+npm install sommark-web
+```
+
+OR
+
+```bash
+bun add sommark-web
+```
+
+
+### 2. Add to Vite
 
 Add the plugin to your `vite.config.ts`:
 
 ```typescript
 import { defineConfig } from "vite";
-import sommark from "sommark-web";
+import sommarkWeb from "sommark-web";
 
 export default defineConfig({
   plugins: [
-    sommark({
-      pagesDir: "src/pages",    // default
-      shellPath: "index.smark"  // default
-    })
+    sommarkWeb()
   ]
 });
 ```
 
-### 2. Create your Shell (`index.smark`)
-
-This acts as your global layout template.
+### 3. Create your Layout (`index.smark`)
 
 ```ini
-[import = page: p{pagePath}][end]
-[DOCTYPE][end]
-[html = lang: en]
+[import = page: p{page}][end]
+[html = lang: "en"]
   [head]
-    [meta = charset: utf-8][end]
-    [title]My SomMark Site[end]
+    [title]My Website[end]
+    [link = rel: "stylesheet", href: "/src/style.css"][end]
   [end]
   [body]
-    [div = id: root]
+    [main]
       [$use-module = page][end]
     [end]
   [end]
 [end]
 ```
 
-### 3. Add a Page (`src/pages/index.smark`)
+## Why use it?
 
-```smark
-[h1]Hello SomMark![end]
-[p]Welcome to your new high-performance static site.[end]
-```
+If you are tired of complex frameworks and want to focus on **content and structure**, SomMark Web is for you. It combines the power of a modern build tool with the simplicity of a block-based language.
 
-### 4. Run Dev Server
+## License
 
-```bash
-npx vite
-```
-
-## Plugin Options
-
-| Option | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `pagesDir` | `string` | `"src/pages"` | The directory containing your `.smark` pages. |
-| `shellPath` | `string` | `"index.smark"` | The path to your main shell/layout template. |
-
+MIT © [Adam Elmi Eid](https://github.com/Adam-Elmi)
