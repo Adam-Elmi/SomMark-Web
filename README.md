@@ -80,4 +80,3 @@ npx vite
 | `pagesDir` | `string` | `"src/pages"` | The directory containing your `.smark` pages. |
 | `shellPath` | `string` | `"index.smark"` | The path to your main shell/layout template. |
 
-## License
