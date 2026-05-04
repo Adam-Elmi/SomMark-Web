@@ -16,6 +16,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "sommark-web": "../Vite-Plugin-SomMark"
+    "sommark-web": "^1.0.0"
   }
 }
