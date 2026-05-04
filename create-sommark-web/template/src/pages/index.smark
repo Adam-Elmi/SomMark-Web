@@ -1,0 +1,18 @@
+[div = class: "hero"]
+  [a = href: "https://github.com/Adam-Elmi/SomMark-Web", cursor: "pointer"]
+    [img = src: "/src/assets/sommark-web-logo.png", class: "logo", alt: "SomMark Logo"][end]
+  [end]
+  
+  [h1]SomMark + Vite[end]
+
+  [div = class: "card"]
+    [button = id: "counter", type: "button"]count is 0[end]
+    [p]
+      Edit (src/pages/index.smark)->(code) to test HMR
+    [end]
+  [end]
+
+  [p = class: "read-the-docs"]
+    Click on the SomMark-Web logo to view it in Github
+  [end]
+[end]

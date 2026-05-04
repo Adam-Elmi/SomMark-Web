@@ -75,7 +75,7 @@ async function init() {
   console.log(`\nSetting up project in ${root}...`);
 
   const write = (file, content) => {
-    const targetPath = path.join(root, file);
+    const targetPath = path.join(root, file === '_gitignore' ? '.gitignore' : file);
     if (content) {
       fs.writeFileSync(targetPath, content);
     } else {
@@ -87,8 +87,13 @@ async function init() {
   for (const file of files) {
     if (file === 'package.json') {
       const pkg = fs.readJsonSync(path.join(templateDir, 'package.json'));
-      pkg.name = path.basename(root);
-      write('package.json', JSON.stringify(pkg, null, 2));
+      pkg.name = (path.basename(root) || 'sommark-app')
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/^[._]/, '')
+        .replace(/[^a-z0-9-~]/g, '-');
+      write('package.json', JSON.stringify(pkg, null, 2) + '\n');
     } else {
       write(file);
     }
