@@ -4,8 +4,14 @@
   "description": "Create a new SomMark Web project",
   "type": "module",
   "bin": {
-    "create-sommark-web": "./index.js"
+    "create-sommark-web": "index.js"
   },
+  "files": [
+    "index.js",
+    "template",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc"
   },
