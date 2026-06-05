@@ -1,10 +1,11 @@
 {
   "name": "sommark-web",
-  "version": "1.0.0",
-  "description": "High-performance Static Site Generation for Vite powered by the SomMark engine.",
+  "version": "2.0.0",
+  "description": "SomMark Web is a lightweight web framework and high-performance Static Site Generation using Vite and the SomMark engine.",
   "keywords": [
+    "framework",
     "vite",
-    "vite-plugin",
+    "sommark-web",
     "sommark",
     "ssg",
     "static-site-generator"
@@ -13,7 +14,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Adam-Elmi/SomMark-Web"
+    "url": "git+https://github.com/Adam-Elmi/SomMark-Web.git"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -33,8 +34,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "tsup": "^8.5.1",
-    "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vite": "^8.0.10"
   },
   "peerDependencies": {
     "typescript": "^5",
@@ -43,12 +43,12 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "ora": "^9.4.0",
     "picocolors": "^1.1.1",
-    "sommark": "^4.0.3"
+    "sommark": "^4.1.0"
   }
 }

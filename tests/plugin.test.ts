@@ -1,61 +1,112 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { resolveSmarkFile, auditSEO } from "../src/index";
+import fs from "node:fs/promises";
 import path from "node:path";
-import { resolveSmarkFile, scanPages, resolveAssetPath } from "../src/index";
 
-describe("SomMark Vite Plugin Helpers", () => {
-  const fixturesDir = path.resolve(__dirname, "fixtures");
-  const pagesDir = path.join(fixturesDir, "pages");
-  const projectRoot = fixturesDir;
+describe("SomMark Web Plugin Unit Tests", () => {
+  const testDir = path.resolve(__dirname, "temp-test-pages");
+
+  beforeAll(async () => {
+    await fs.mkdir(testDir, { recursive: true });
+    await fs.writeFile(path.join(testDir, "index.smark"), "root page");
+    await fs.writeFile(path.join(testDir, "about.smark"), "about page");
+    await fs.mkdir(path.join(testDir, "posts"), { recursive: true });
+    await fs.writeFile(path.join(testDir, "posts", "hello.smark"), "nested page");
+  });
+
+  afterAll(async () => {
+    await fs.rm(testDir, { recursive: true, force: true });
+  });
 
   describe("resolveSmarkFile", () => {
     it("should resolve the root path to index.smark", () => {
-      const result = resolveSmarkFile("/", pagesDir);
-      expect(result).toContain("pages/index.smark");
+      const result = resolveSmarkFile("/", testDir);
+      expect(result).not.toBeNull();
+      expect(result!).toContain("index.smark");
     });
 
     it("should resolve /about to about.smark", () => {
-      const result = resolveSmarkFile("/about", pagesDir);
-      expect(result).toContain("pages/about.smark");
+      const result = resolveSmarkFile("/about", testDir);
+      expect(result).not.toBeNull();
+      expect(result!).toContain("about.smark");
     });
 
-    it("should resolve nested paths like /blog/date/may/today", () => {
-      const result = resolveSmarkFile("/blog/date/may/today", pagesDir);
-      expect(result).toContain("pages/blog/date/may/today.smark");
+    it("should resolve nested paths like /posts/hello", () => {
+      const result = resolveSmarkFile("/posts/hello", testDir);
+      expect(result).not.toBeNull();
+      expect(result!).toContain("posts/hello.smark");
     });
 
-    it("should return null for non-existent pages", () => {
-      const result = resolveSmarkFile("/ghost-page", pagesDir);
+    it("should return null for non-existent paths", () => {
+      const result = resolveSmarkFile("/non-existent-path-abc", testDir);
       expect(result).toBeNull();
     });
   });
 
-  describe("resolveAssetPath", async () => {
-    it("should find assets in the project root", async () => {
-      const result = await resolveAssetPath("/m.js", pagesDir, projectRoot);
-      expect(result).toContain("m.js");
+  describe("auditSEO", () => {
+    it("should flag missing title, description, and canonical link", () => {
+      const html = "<html><body><h1>Hello</h1></body></html>";
+      const warnings = auditSEO(html);
+
+      expect(warnings).toContain("Missing <title> tag");
+      expect(warnings).toContain("Missing <meta name=\"description\"> tag");
+      expect(warnings).toContain("Missing <link rel=\"canonical\"> tag");
     });
 
-    it("should find assets in the src directory", async () => {
-      const result = await resolveAssetPath("/log.js", pagesDir, projectRoot);
-      expect(result).toContain("fixtures/src/log.js");
+    it("should flag empty title and description", () => {
+      const html = `
+        <html>
+          <head>
+            <title>   </title>
+            <meta name="description" content="   " />
+            <link rel="canonical" href="https://example.com" />
+          </head>
+          <body></body>
+        </html>
+      `;
+      const warnings = auditSEO(html);
+
+      expect(warnings).toContain("<title> tag is empty");
+      expect(warnings).toContain("<meta name=\"description\"> content is empty");
+      expect(warnings).not.toContain("Missing <link rel=\"canonical\"> tag");
     });
 
-    it("should find assets relative to the current file", async () => {
-      // Assuming we are in fixtures/pages/
-      const result = await resolveAssetPath("../src/style.css", pagesDir, projectRoot);
-      expect(result).toContain("fixtures/src/style.css");
-    });
-  });
+    it("should flag images without alt attributes", () => {
+      const html = `
+        <html>
+          <head>
+            <title>My Title</title>
+            <meta name="description" content="My description" />
+            <link rel="canonical" href="https://example.com" />
+          </head>
+          <body>
+            <img src="/logo.png" />
+            <img class="avatar" />
+          </body>
+        </html>
+      `;
+      const warnings = auditSEO(html);
 
-  describe("scanPages", async () => {
-    it("should find all .smark files in the pages directory", async () => {
-      const routes = await scanPages(pagesDir);
-      const urls = routes.map(r => r.url);
-      
-      expect(urls).toContain("/");
-      expect(urls).toContain("/about");
-      expect(urls).toContain("/blog/date/may/today");
-      expect(routes.length).toBeGreaterThanOrEqual(3);
+      expect(warnings).toContain('Image missing alt attribute: src="/logo.png"');
+      expect(warnings).toContain('Image missing alt attribute: image #2');
+    });
+
+    it("should produce zero warnings for valid SEO content", () => {
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>My Website</title>
+            <meta name="description" content="Welcome to my website description." />
+            <link rel="canonical" href="https://sommark.dev" />
+          </head>
+          <body>
+            <img src="/logo.png" alt="SomMark Web Logo" />
+          </body>
+        </html>
+      `;
+      const warnings = auditSEO(html);
+      expect(warnings.length).toBe(0);
     });
   });
 });
