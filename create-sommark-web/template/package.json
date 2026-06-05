@@ -5,6 +5,8 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
+    "ora": "^9.4.0",
+    "picocolors": "^1.1.1",
     "vite": "^8.0.10"
   },
   "peerDependencies": {
@@ -13,9 +15,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup-tailwind": "node scripts/tailwindcss/setup-tailwindcss.js",
+    "cleanup-tailwind": "node scripts/tailwindcss/cleanup-tailwindcss.js"
   },
   "dependencies": {
-    "sommark-web": "^1.0.0"
+    "sommark-web": "^2.0.0"
   }
 }
