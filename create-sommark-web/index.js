@@ -85,6 +85,9 @@ async function init() {
 
   const files = fs.readdirSync(templateDir);
   for (const file of files) {
+    if (file === 'node_modules' || file === 'dist') {
+      continue;
+    }
     if (file === 'package.json') {
       const pkg = fs.readJsonSync(path.join(templateDir, 'package.json'));
       pkg.name = (path.basename(root) || 'sommark-app')
