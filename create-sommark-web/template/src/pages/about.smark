@@ -1,8 +1,12 @@
-[h1]About SomMark-Web[end]
-SomMark-Web is a lightweight & fast web framework for creating static web applications using the SomMark markup language.
+[import = AboutLayout: "../layouts/AboutLayout.smark"][end]
 
-[a = href: "/", display: "block", margin-top: "20px"]
-    [button]
-        Go back to the home page
-    [end]
+[AboutLayout = title: "About - SomMark Template", description: "Learn more about SomMark-Web"]
+  [h1]About SomMark-Web[end]
+  SomMark-Web is a lightweight & fast web framework for creating static web applications using the SomMark markup language.
+
+  [a = href: "/", display: "block", margin-top: "20px"]
+      [button]
+          Go back to the home page
+      [end]
+  [end]
 [end]
