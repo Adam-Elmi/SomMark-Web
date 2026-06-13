@@ -20,6 +20,6 @@
     "cleanup-tailwind": "node scripts/tailwindcss/cleanup-tailwindcss.js"
   },
   "dependencies": {
-    "sommark-web": "^2.0.0"
+    "sommark-web": "^2.1.1"
   }
 }
