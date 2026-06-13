@@ -1,35 +1,66 @@
 [import = Layout: "../layouts/Layout.smark"][end]
 
-[Layout = title: "Home - SomMark Template", description: "A premium template built with SomMark and Vite."]
+[Layout = title: "Home - SomMark + Vite", description: "A starter template built with SomMark and Vite."]
   [div = class: "hero"]
-    [a = href: "https://github.com/Adam-Elmi/SomMark-Web", cursor: "pointer"]
-      [img = src: "/src/assets/sommark-web-logo.png", class: "logo", alt: "SomMark Logo"][end]
-    [end]
-    
-    [h1]SomMark + Vite[end]
 
-    [div = class: "card"]
-      [button = id: "counter", type: "button"]
-      count is 0
-      runtime ${
-        const setupCounter = (element) => {
-        let counter = 0;
-        const setCounter = (count) => {
-          counter = count;
-          element.innerHTML = `count is ${counter}`;
-        };
-        element.addEventListener("click", () => setCounter(counter + 1));
-        setCounter(0);
-      };
-        setupCounter(self);
-      }$[end]
-      [p]
-        Edit (src/pages/index.smark) \-> code to test HMR
+    [a = href: "https://github.com/Adam-Elmi/SomMark-Web", target: "_blank"]
+      [img = src: "/src/assets/sommark-web-logo.png", class: "logo logo-main", alt: "SomMark-Web"][end]
+    [end]
+
+    [h1 = class: "hero-title"]
+      (SomMark)->(span = class: "hl")-Web
+    [end]
+
+    [p = class: "hero-sub"]
+      Declarative markup · Sandboxed JS · HMR
+    [end]
+
+    [div = class: "logos logos-built-with"]
+      [span = class: "built-with-label"]built with[end]
+      [a = href: "https://github.com/Adam-Elmi/SomMark", target: "_blank"]
+        [img = src: "/src/assets/smark.logo.png", class: "logo logo-sm", alt: "SomMark"][end]
+      [end]
+      [span = class: "logo-sep"]+[end]
+      [a = href: "https://vite.dev", target: "_blank"]
+        [img = src: "/src/assets/Vite.js.png", class: "logo logo-sm", alt: "Vite"][end]
       [end]
     [end]
 
-    [p = class: "read-the-docs"]
-      Click on the SomMark-Web logo to view it in Github
+    [div = class: "card"]
+      [div = class: "card-tab"]
+        [span = class: "tab-dot"][end]
+        [span = class: "tab-name"]counter.smark[end]
+      [end]
+      [div = class: "card-body"]
+        [button = id: "counter", type: "button"]
+          count is 0
+          runtime ${
+            const setupCounter = (element) => {
+              let counter = 0;
+              const setCounter = (count) => {
+                counter = count;
+                element.innerHTML = `count is ${counter}`;
+              };
+              element.addEventListener("click", () => setCounter(counter + 1));
+              setCounter(0);
+            };
+            setupCounter(self);
+          }$
+        [end]
+        [p = class: "card-hint"]
+          Edit (src/pages/index.smark) \-> code to test HMR
+        [end]
+        [p = class: "card-hint"]
+          Click to increment · Uses (runtime $\{ \}$)->(span = class: "ic") block
+        [end]
+      [end]
     [end]
+
+    [nav = class: "nav-links"]
+      [a = href: "/about"]About[end]
+      [a = href: "https://github.com/Adam-Elmi/SomMark-Web", target: "_blank"]GitHub[end]
+      [a = href: "https://github.com/Adam-Elmi/SomMark", target: "_blank"]SomMark[end]
+    [end]
+
   [end]
 [end]

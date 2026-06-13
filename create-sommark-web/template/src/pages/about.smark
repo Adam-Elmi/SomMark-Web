@@ -1,12 +1,60 @@
 [import = AboutLayout: "../layouts/AboutLayout.smark"][end]
 
 [AboutLayout = title: "About - SomMark Template", description: "Learn more about SomMark-Web"]
-  [h1]About SomMark-Web[end]
-  SomMark-Web is a lightweight & fast web framework for creating static web applications using the SomMark markup language.
+  [div = class: "about-page"]
 
-  [a = href: "/", display: "block", margin-top: "20px"]
-      [button]
-          Go back to the home page
+    [a = href: "/", class: "back-link"]← Home[end]
+
+    [div = class: "page-header"]
+      [h1 = class: "page-title"]
+        (SomMark)->(span = class: "hl")-Web
       [end]
+      [p = class: "page-desc"]
+        A lightweight static site framework built on SomMark and Vite.
+      [end]
+    [end]
+
+    [div = class: "feature-list"]
+
+      [div = class: "feature"]
+        [span = class: "feature-icon"]◈[end]
+        [div]
+          [p = class: "feature-name"]SomMark Syntax[end]
+          [p = class: "feature-desc"]Instead of writing raw HTML, you write (*.smark)->(span = class: "ic") files using SomMark's simple block syntax. SomMark-Web compiles them to HTML automatically when you build or save.[end]
+        [end]
+      [end]
+
+      [div = class: "feature"]
+        [span = class: "feature-icon"]⚡[end]
+        [div]
+          [p = class: "feature-name"]Live Reload in Dev[end]
+          [p = class: "feature-desc"]When you save a (*.smark)->(span = class: "ic") file, the browser updates immediately without a manual refresh. No extra config needed — it works out of the box with Vite.[end]
+        [end]
+      [end]
+
+      [div = class: "feature"]
+        [span = class: "feature-icon"]⬡[end]
+        [div]
+          [p = class: "feature-name"]Modules & Components[end]
+          [p = class: "feature-desc"]Split your UI into reusable (*.smark)->(span = class: "ic") components. Import them with (import)->(span = class: "ic"), pass props, and drop a (slot)->(span = class: "ic") where the inner content should go — SomMark's module system handles the rest.[end]
+        [end]
+      [end]
+
+      [div = class: "feature"]
+        [span = class: "feature-icon"]⬒[end]
+        [div]
+          [p = class: "feature-name"]JavaScript Support[end]
+          [p = class: "feature-desc"]Use (static $\{ \}$)->(span = class: "ic") to run JavaScript at build time — great for fetching data or computing values before the page is generated. Use (runtime $\{ \}$)->(span = class: "ic") to add browser behavior like click handlers directly inside your markup.[end]
+        [end]
+      [end]
+
+    [end]
+
+    [div = class: "about-links"]
+      [a = href: "https://github.com/Adam-Elmi/SomMark-Web", target: "_blank"]↗ SomMark-Web[end]
+      [a = href: "https://github.com/Adam-Elmi/SomMark", target: "_blank"]↗ SomMark[end]
+      [a = href: "https://github.com/Adam-Elmi/SomMark-Web/issues", target: "_blank"]⚐ Issues[end]
+    [end]
+
   [end]
 [end]
