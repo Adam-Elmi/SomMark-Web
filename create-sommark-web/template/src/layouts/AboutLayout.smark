@@ -10,7 +10,7 @@
   [end]
 
   [body]
-    [div = id: "app", class: "custom-about-layout"]
+    [div = id: "app"]
       [slot][end]
     [end]
   [end]
