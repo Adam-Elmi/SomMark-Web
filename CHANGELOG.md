@@ -2,6 +2,18 @@
 
 All changes to **SomMark Web** are recorded here.
 
+## [2.1.1] - 2026-06-13
+
+### Fixed
+
+- **`data-sommark-id` mismatch** — Runtime scripts couldn't find their elements because two separate compilations produced different IDs. Fixed using `dualOutput: true`.
+- **Server crash on compile error** — A `.smark` syntax error crashed the dev server instead of showing an error. Now shows a styled error page.
+
+
+## [2.1.0]
+
+- Updated SomMark dependency package
+
 ## [2.0.0] - 2026-06-05
 
 ### Added
