@@ -2,6 +2,10 @@
 
 All changes to **SomMark Web** are recorded here.
 
+## [2.1.2] - 2026-06-13
+
+- Updated SomMark dependency to `4.5.1`
+
 ## [2.1.1] - 2026-06-13
 
 ### Fixed
