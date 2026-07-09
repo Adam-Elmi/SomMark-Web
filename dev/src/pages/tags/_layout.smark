@@ -1,0 +1,154 @@
+[head]
+  [meta = charset: "UTF-8"!]
+  [meta = name: "viewport", content: "width=device-width, initial-scale=1.0"!]
+  [title]${ return "#" + __slug + " — SomMark Blog"; }$[end:title]
+[end:head]
+
+[style = smark-raw: true, smark-syntax: css]
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+:root {
+  --accent: #4b6bfb;
+  --text: #111827;
+  --muted: #6b7280;
+  --bg: #ffffff;
+  --surface: #f9fafb;
+  --border: #e5e7eb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f3f4f6;
+    --muted: #9ca3af;
+    --bg: #0f1117;
+    --surface: #1a1f2e;
+    --border: #2d3748;
+  }
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  line-height: 1.6;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  padding: 16px 0;
+}
+.header-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+}
+.logo {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+.back-link {
+  margin-left: auto;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.back-link:hover {
+  color: var(--accent);
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.tag-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 4px 12px;
+  border-radius: 99px;
+  margin-bottom: 12px;
+}
+.page-title {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.page-sub {
+  color: var(--muted);
+  margin-bottom: 40px;
+  font-size: 0.9rem;
+}
+
+.post-card {
+  display: block;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  margin-bottom: 12px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.post-card:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.card-excerpt {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.card-date {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+[end]
+
+[header = class: "site-header"]
+[div = class: "header-inner"]
+[a = class: "logo", href: "/"]SomMark Blog[end:a]
+[a = class: "back-link", href: "/"]All posts[end:a]
+[end]
+[end:header]
+
+[div = class: "container"]
+
+[span = class: "tag-badge"]\#${ return __slug; }$[end:span]
+[h1 = class: "page-title"]Posts tagged "${ return __slug; }$"[end:h1]
+[p = class: "page-sub"]${ return __props.posts?.length + " post" + (__props.posts?.length === 1 ? "" : "s"); }$[end:p]
+
+static ${
+  const cards = __props.posts?.map(p => `
+<a class="post-card" href="/posts/${p.slug}">
+  <div class="card-title">${p.title}</div>
+  <div class="card-excerpt">${p.excerpt}</div>
+  <div class="card-date">${p.date}</div>
+</a>`);
+  return SomMark.raw(cards.join("\n"));
+}$
+
+[end]

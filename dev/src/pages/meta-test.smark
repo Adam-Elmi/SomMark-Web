@@ -1,0 +1,54 @@
+[Metadata = title: "Metadata Test", 
+description: "Testing the [Metadata] block and getMetadata()",
+author: "Adam", 
+published: true,
+id: 101
+!]
+
+[head]
+  [meta = charset: "UTF-8"!]
+  [title]Meta Test[end:title]
+[end]
+
+[style = smark-raw: true, smark-syntax: css]
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+h1 {
+  margin-bottom: 1rem;
+}
+pre {
+  background: #1e1f22;
+  color: #bcbec4;
+  padding: 1.25rem;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6f7580;
+  margin: 1.5rem 0 0.5rem;
+}
+[end]
+
+[h1]getMetadata test[end:h1]
+
+[p = class: "label"]getMetadata on current file[end:p]
+
+static ${
+  const meta = await getMetadata(__currentFile);
+  return SomMark.raw(`<pre>${JSON.stringify(meta, null, 2)}</pre>`);
+}$
+
+[p = class: "label"]getPages() — metadata for this route[end:p]
+
+static ${
+  const pages = await getPages();
+  const thisPage = pages.find(p => p.url === "/meta-test");
+  return SomMark.raw(`<pre>${JSON.stringify(thisPage?.metadata ?? null, null, 2)}</pre>`);
+}$

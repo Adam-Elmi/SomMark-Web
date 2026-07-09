@@ -1,0 +1,115 @@
+[Metadata = title: "API Test", description: "sommark-web variable and function coverage" !]
+
+[head]
+  [meta = charset: "UTF-8"!]
+  [title]API Test[end:title]
+[end]
+
+[style = smark-raw: true, smark-syntax: css]
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #0f1117; color: #c9d1d9; padding: 2rem; }
+h1 { color: #e6edf3; font-size: 1.4rem; margin-bottom: 1.5rem; }
+h2 { color: #8b949e; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin: 2rem 0 0.5rem; }
+pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; }
+.pass { color: #3fb950; }
+.fail { color: #f85149; }
+.section { margin-bottom: 0.25rem; }
+[end]
+
+[h1]sommark-web API test[end:h1]
+
+[h2]__currentFile[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__currentFile)}</pre>`);
+}$
+
+[h2]__currentUrl[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__currentUrl)}</pre>`);
+}$
+
+[h2]__pagesDir[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__pagesDir)}</pre>`);
+}$
+
+[h2]__siteUrl[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__siteUrl)}</pre>`);
+}$
+
+[h2]__isDev[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__isDev)}</pre>`);
+}$
+
+[h2]__slug — empty string on static pages[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__slug)}</pre>`);
+}$
+
+[h2]__props — empty object on static pages[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__props, null, 2)}</pre>`);
+}$
+
+[h2]__headings — empty array on static pages[end:h2]
+static ${
+  return SomMark.raw(`<pre class="section">${JSON.stringify(__headings)}</pre>`);
+}$
+
+[h2]getMetadata(__currentFile)[end:h2]
+static ${
+  const meta = await getMetadata(__currentFile);
+  const ok = meta.title === "API Test" && meta.description === "sommark-web variable and function coverage";
+  return SomMark.raw(`<pre class="section ${ok ? 'pass' : 'fail'}">${JSON.stringify(meta, null, 2)}</pre>`);
+}$
+
+[h2]getHeadings(__currentFile)[end:h2]
+static ${
+  const headings = await getHeadings(__currentFile);
+  const ok = Array.isArray(headings) && headings.length > 0 && headings.every(h => "level" in h && "text" in h && "id" in h);
+  return SomMark.raw(`<pre class="section ${ok ? 'pass' : 'fail'}">${JSON.stringify(headings, null, 2)}</pre>`);
+}$
+
+[h2]glob("src/pages/*.smark") — full shape[end:h2]
+static ${
+  const pages = await glob("src/pages/*.smark");
+  const first = pages[0] ?? null;
+  const keys = first ? Object.keys(first) : [];
+  const hasAllKeys = ["url", "filePath", "metadata", "headings", "title", "lastUpdate"].every(k => keys.includes(k));
+  const out = { count: pages.length, firstEntry: first };
+  return SomMark.raw(`<pre class="section ${hasAllKeys ? 'pass' : 'fail'}">${JSON.stringify(out, null, 2)}</pre>`);
+}$
+
+[h2]getData("posts")[end:h2]
+static ${
+  const posts = getData("posts");
+  const summary = posts.map(p => ({ slug: p.slug, title: p.title }));
+  const ok = posts.length > 0;
+  return SomMark.raw(`<pre class="section ${ok ? 'pass' : 'fail'}">${JSON.stringify(summary, null, 2)}</pre>`);
+}$
+
+[h2]getData("tags")[end:h2]
+static ${
+  const tags = getData("tags");
+  const summary = tags.map(t => ({ slug: t.slug, postCount: t.posts?.length ?? 0 }));
+  const ok = tags.length > 0;
+  return SomMark.raw(`<pre class="section ${ok ? 'pass' : 'fail'}">${JSON.stringify(summary, null, 2)}</pre>`);
+}$
+
+[h2]getPages() — static pages[end:h2]
+static ${
+  const pages = await getPages();
+  const statics = pages.filter(p => !p.isDynamic).map(p => ({ url: p.url, title: p.title, hasMetadata: !!p.metadata }));
+  const ok = statics.length > 0;
+  return SomMark.raw(`<pre class="section ${ok ? 'pass' : 'fail'}">${JSON.stringify(statics, null, 2)}</pre>`);
+}$
+
+[h2]getPages() — dynamic pages[end:h2]
+static ${
+  const pages = await getPages();
+  const dynamics = pages.filter(p => p.isDynamic).map(p => ({ url: p.url, slug: p.slug, folder: p.folder }));
+  const ok = dynamics.length > 0;
+  return SomMark.raw(`<pre class="section ${ok ? 'pass' : 'fail'}">${JSON.stringify(dynamics, null, 2)}</pre>`);
+}$

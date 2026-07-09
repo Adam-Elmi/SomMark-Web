@@ -1,0 +1,81 @@
+[head]
+  [meta = charset: "UTF-8"!]
+  [meta = name: "viewport", content: "width=device-width, initial-scale=1.0"!]
+[meta = name: "description", content: "A demo blog built with SomMark-Web."!]
+[title]SomMark Blog[end:title]
+[end:head]
+
+[style = smark-raw: true, smark-syntax: css]
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --accent: #4B6BFB;
+  --text: #111827;
+  --muted: #6B7280;
+  --bg: #ffffff;
+  --surface: #F9FAFB;
+  --border: #E5E7EB;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --text: #F3F4F6; --muted: #9CA3AF; --bg: #0F1117; --surface: #1A1F2E; --border: #2D3748; }
+}
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; }
+
+.site-header { border-bottom: 1px solid var(--border); padding: 16px 0; }
+.header-inner { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+.logo { font-weight: 800; font-size: 1.15rem; color: var(--accent); text-decoration: none; }
+
+.hero { max-width: 760px; margin: 0 auto; padding: 64px 24px 40px; }
+.hero-title { font-size: clamp(2rem, 6vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 16px; }
+.hero-sub { font-size: 1.125rem; color: var(--muted); max-width: 500px; }
+
+.posts-section { max-width: 760px; margin: 0 auto; padding: 8px 24px 80px; }
+.section-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 24px; }
+
+.post-card {
+  display: block; padding: 24px; border: 1px solid var(--border); border-radius: 8px;
+  text-decoration: none; color: inherit; margin-bottom: 16px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.post-card:hover { border-color: var(--accent); background: var(--surface); }
+.tag {
+  display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  padding: 2px 8px; border-radius: 99px; margin-right: 6px; margin-bottom: 10px;
+}
+.card-title { font-size: 1.125rem; font-weight: 700; margin-bottom: 6px; }
+.card-excerpt { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; }
+.card-meta { font-size: 0.8rem; color: var(--muted); }
+[end]
+
+[header = class: "site-header"]
+[div = class: "header-inner"]
+[a = class: "logo", href: "/"]SomMark Blog[end:a]
+[end]
+[end:header]
+
+[div = class: "hero"]
+[h1 = class: "hero-title"]A blog built with SomMark-Web[end:h1]
+[p = class: "hero-sub"]Dynamic routing, CSS extraction, and static compilation — powered by SomMark and Vite.[end:p]
+[end]
+
+[div = class: "posts-section"]
+[p = class: "section-label"]Recent Posts[end:p]
+
+static ${
+  const posts = await getData("posts");
+  const cards = posts.map(p => {
+    const tags = Array.isArray(p.tags) ? p.tags : [];
+    const tagHtml = tags.map(t => `<span class="tag">${t}</span>`).join("");
+    return `
+<a class="post-card" href="/posts/${p.slug}">
+  ${tagHtml}
+  <div class="card-title">${p.title}</div>
+  <div class="card-excerpt">${p.excerpt || ""}</div>
+  <div class="card-meta">${p.author || ""}${p.date ? " · " + p.date : ""}${p.readTime ? " · " + p.readTime : ""}</div>
+</a>`;
+  });
+  return SomMark.raw(cards.join("\n"));
+}$
+
+[end]

@@ -1,0 +1,16 @@
+{
+  "name": "sommark-web-dev",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "sommark-web": "file:.."
+  },
+  "devDependencies": {
+    "vite": "^8.0.10"
+  }
+}

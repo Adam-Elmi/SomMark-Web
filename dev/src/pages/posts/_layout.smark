@@ -1,0 +1,80 @@
+[head]
+  [meta = charset: "UTF-8"!]
+  [meta = name: "viewport", content: "width=device-width, initial-scale=1.0"!]
+  [meta = name: "description", content: ${ return __props.excerpt; }$ !]
+  [title]${ return __props.title + " — SomMark Blog"; }$[end:title]
+[end:head]
+
+[style = smark-raw: true, smark-syntax: css]
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --accent: #4B6BFB;
+  --text: #111827;
+  --muted: #6B7280;
+  --bg: #ffffff;
+  --border: #E5E7EB;
+  --code-bg: #F3F4F6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --text: #F3F4F6; --muted: #9CA3AF; --bg: #0F1117; --border: #2D3748; --code-bg: #1E2432; }
+}
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; line-height: 1.7; }
+
+.site-header { border-bottom: 1px solid var(--border); padding: 16px 0; }
+.header-inner { max-width: 720px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; }
+.logo { font-weight: 800; font-size: 1.1rem; color: var(--accent); text-decoration: none; }
+.back-link { margin-left: auto; font-size: 0.875rem; color: var(--muted); text-decoration: none; }
+.back-link:hover { color: var(--accent); }
+
+.container { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+
+.post-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.tag {
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
+  padding: 3px 10px; border-radius: 99px; text-decoration: none;
+}
+.post-title { font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 16px; }
+.post-meta { display: flex; align-items: center; gap: 12px; font-size: 0.875rem; color: var(--muted); flex-wrap: wrap; margin-bottom: 40px; }
+.post-meta .author { font-weight: 600; color: var(--text); }
+.post-body h2 { font-size: 1.375rem; font-weight: 700; margin: 2.5rem 0 0.75rem; }
+.post-body p { margin-bottom: 1.25rem; }
+.post-body code { font-family: monospace; font-size: 0.875em; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+[end]
+
+[header = class: "site-header"]
+[div = class: "header-inner"]
+[a = class: "logo", href: "/"]SomMark Blog[end:a]
+[a = class: "back-link", href: "/"]All posts[end:a]
+[end]
+[end:header]
+
+[div = class: "container"]
+
+static ${
+  const tags = __props.tags || [];
+  const tagLinks = tags.map(t => `<a class="tag" href="/tags/${t}">${t}</a>`).join(", ");
+  return SomMark.raw(`<div class="post-tags">${tagLinks}</div>`);
+}$
+
+[h1 = class: "post-title"]${ return __props.title; }$[end:h1]
+
+[div = class: "post-meta"]
+[span = class: "author"]${ return __props.author; }$[end:span]
+[span]·[end:span]
+[time]${ return __props.date; }$[end:time]
+[span]·[end:span]
+[span]${ return __props.readTime; }$[end:span]
+[end]
+
+[article = class: "post-body"]
+${ return __props.excerpt; }$
+[end:article]
+
+static ${
+  const items = __headings.map(h => `<li style="padding-left:${Math.max(0, (h.level - 2) * 12)}px"><a href="#${h.id}">${h.text}</a></li>`).join("");
+  return SomMark.raw(items ? `<nav class="toc"><p class="toc-label">On this page</p><ul>${items}</ul></nav>` : "");
+}$
+
+[span = info: ${{name: "Adam", email: "adam@example.com"}}$][end]
+[end]
