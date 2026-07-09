@@ -1,0 +1,5 @@
+node_modules
+bun.lock
+package-lock.json
+template/dist
+template/node_modules

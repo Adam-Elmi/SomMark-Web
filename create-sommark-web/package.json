@@ -9,12 +9,11 @@
   "files": [
     "index.js",
     "template",
+    "template/.gitignore",
     "README.md",
     "LICENSE"
   ],
-  "scripts": {
-    "build": "tsc"
-  },
+  "scripts": {},
   "keywords": [
     "sommark",
     "create-sommark-web",

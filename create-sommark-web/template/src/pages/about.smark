@@ -1,5 +1,16 @@
 [import = AboutLayout: "../layouts/AboutLayout.smark"][end]
 
+${
+const  src = `[import = Layout: "../layouts/Layout.smark"][end]
+[Layout = title: "Home", description: "My SomMark site"]
+  [div = class: "hero"]
+    [h1]Hello, SomMark![end]
+    [p]Built with declarative blocks.[end]
+    [a = href: "/about"]Learn more[end]
+  [end]
+[end]`;
+}$
+
 [AboutLayout = title: "About - SomMark Template", description: "Learn more about SomMark-Web"]
   [div = class: "about-page"]
 
@@ -7,7 +18,7 @@
 
     [div = class: "page-header"]
       [h1 = class: "page-title"]
-        (SomMark)->(span = class: "hl")-Web
+        [span = class: "hl"]SomMark[end]-Web
       [end]
       [p = class: "page-desc"]
         A lightweight static site framework built on SomMark and Vite.
@@ -20,7 +31,7 @@
         [span = class: "feature-icon"]◈[end]
         [div]
           [p = class: "feature-name"]SomMark Syntax[end]
-          [p = class: "feature-desc"]Instead of writing raw HTML, you write (*.smark)->(span = class: "ic") files using SomMark's simple block syntax. SomMark-Web compiles them to HTML automatically when you build or save.[end]
+          [p = class: "feature-desc"]Instead of writing raw HTML, you write [span = class: "ic"]*.smark[end] files using SomMark's simple block syntax. SomMark-Web compiles them to HTML automatically when you build or save.[end]
         [end]
       [end]
 
@@ -28,7 +39,7 @@
         [span = class: "feature-icon"]⚡[end]
         [div]
           [p = class: "feature-name"]Live Reload in Dev[end]
-          [p = class: "feature-desc"]When you save a (*.smark)->(span = class: "ic") file, the browser updates immediately without a manual refresh. No extra config needed — it works out of the box with Vite.[end]
+          [p = class: "feature-desc"]When you save a [span = class: "ic"]*.smark[end] file, the browser updates immediately without a manual refresh. No extra config needed — it works out of the box with Vite.[end]
         [end]
       [end]
 
@@ -36,7 +47,7 @@
         [span = class: "feature-icon"]⬡[end]
         [div]
           [p = class: "feature-name"]Modules & Components[end]
-          [p = class: "feature-desc"]Split your UI into reusable (*.smark)->(span = class: "ic") components. Import them with (import)->(span = class: "ic"), pass props, and drop a (slot)->(span = class: "ic") where the inner content should go — SomMark's module system handles the rest.[end]
+          [p = class: "feature-desc"]Split your UI into reusable [span = class: "ic"]*.smark[end] components. Import them with [span = class: "ic"]import[end], pass props, and drop a [span = class: "ic"]slot[end] where the inner content should go — SomMark's module system handles the rest.[end]
         [end]
       [end]
 
@@ -44,9 +55,15 @@
         [span = class: "feature-icon"]⬒[end]
         [div]
           [p = class: "feature-name"]JavaScript Support[end]
-          [p = class: "feature-desc"]Use (static $\{ \}$)->(span = class: "ic") to run JavaScript at build time — great for fetching data or computing values before the page is generated. Use (runtime $\{ \}$)->(span = class: "ic") to add browser behavior like click handlers directly inside your markup.[end]
+          [p = class: "feature-desc"]Use [span = class: "ic", smark-raw: true]static ${ }$[end] to run JavaScript at build time — great for fetching data or computing values before the page is generated. Use [span = class: "ic", smark-raw: true]runtime ${ }$[end] to add browser behavior like click handlers directly inside your markup.[end]
         [end]
       [end]
+
+    [end]
+
+    [div = class: "code-example"]
+      [p = class: "sec-label"]Quick Example[end]
+      [pre = class: "smark-snippet", color: "#cdf"]static ${src}$[end]
 
     [end]
 

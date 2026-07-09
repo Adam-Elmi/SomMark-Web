@@ -1,17 +1,7 @@
 {
   "name": "sommark-template",
-  "module": "index.ts",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest",
-    "ora": "^9.4.0",
-    "picocolors": "^1.1.1",
-    "vite": "^8.0.10"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -20,6 +10,10 @@
     "cleanup-tailwind": "node scripts/tailwindcss/cleanup-tailwindcss.js"
   },
   "dependencies": {
-    "sommark-web": "^2.1.4"
+    "sommark-web": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vite": "^8.0.10"
   }
 }

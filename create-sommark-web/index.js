@@ -75,7 +75,7 @@ async function init() {
   console.log(`\nSetting up project in ${root}...`);
 
   const write = (file, content) => {
-    const targetPath = path.join(root, file === '_gitignore' ? '.gitignore' : file);
+    const targetPath = path.join(root, file);
     if (content) {
       fs.writeFileSync(targetPath, content);
     } else {
@@ -85,7 +85,7 @@ async function init() {
 
   const files = fs.readdirSync(templateDir);
   for (const file of files) {
-    if (file === 'node_modules' || file === 'dist') {
+    if (file === 'node_modules' || file === 'dist' || file === 'bun.lock' || file === 'package-lock.json') {
       continue;
     }
     if (file === 'package.json') {

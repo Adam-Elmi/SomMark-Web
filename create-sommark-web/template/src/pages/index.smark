@@ -8,7 +8,7 @@
     [end]
 
     [h1 = class: "hero-title"]
-      (SomMark)->(span = class: "hl")-Web
+      [span = class: "hl"]SomMark[end]-Web
     [end]
 
     [p = class: "hero-sub"]
@@ -48,10 +48,10 @@
           }$
         [end]
         [p = class: "card-hint"]
-          Edit (src/pages/index.smark) \-> code to test HMR
+          Edit src/pages/index.smark -> code to test HMR
         [end]
         [p = class: "card-hint"]
-          Click to increment · Uses (runtime $\{ \}$)->(span = class: "ic") block
+          Click to increment · Uses [span = class: "ic"]runtime ${ }$[end] block
         [end]
       [end]
     [end]
