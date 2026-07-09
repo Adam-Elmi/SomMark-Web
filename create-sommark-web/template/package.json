@@ -9,11 +9,11 @@
     "setup-tailwind": "node scripts/tailwindcss/setup-tailwindcss.js",
     "cleanup-tailwind": "node scripts/tailwindcss/cleanup-tailwindcss.js"
   },
-  "dependencies": {
-    "sommark-web": "^3.0.0"
-  },
   "devDependencies": {
     "typescript": "^5",
     "vite": "^8.0.10"
+  },
+  "dependencies": {
+    "sommark-web": "^3.0.0"
   }
 }
