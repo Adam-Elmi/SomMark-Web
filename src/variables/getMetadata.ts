@@ -11,7 +11,7 @@ export default async function getMetadata(filePath) {
       if (!isNaN(Number(key))) continue;
       let val = metadata.props[key];
       if (val && typeof val === "object" && val.type === "StaticLogic" && typeof val.code === "string") {
-        try { val = eval(`(${val.code.trim()})`); } catch { val = val.code; }
+        try { val = new Function(`return (${val.code.trim()})`)(); } catch { val = val.code; }
       } else if (typeof val === "string") {
         if (val === "true") val = true;
         else if (val === "false") val = false;
