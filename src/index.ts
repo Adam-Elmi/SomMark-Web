@@ -2,7 +2,7 @@
 import { transformWithEsbuild } from "vite";
 import { build as esbuildBuild } from "esbuild";
 import type { Plugin, ViteDevServer, PreviewServer } from "vite";
-import SomMark, { HTML, transpile, findAndLoadConfig, parseSync } from "sommark";
+import SomMark, { HTML, transpile, findAndLoadConfig, parseSync, transpileProps } from "sommark";
 import { getMetadata, getHeadings, glob as smarkGlob } from "./variables/index.js";
 import {
   buildDynamicRouteMap,
@@ -128,26 +128,8 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
       const nodes = parseSync(src);
       const fileStat = await stat(absPath);
       const lastUpdate = new Date(fileStat.mtimeMs).toISOString();
-      const fmNode = nodes.find((n: any) => n.type === "Block" && (n.id === "Metadata" || n.id === "metadata"));
-      const metadata: Record<string, any> = {};
-      if (fmNode && fmNode.props) {
-        for (const key of Object.keys(fmNode.props)) {
-          if (!isNaN(Number(key))) continue;
-          let val = fmNode.props[key];
-          if (val && typeof val === "object" && val.type === "StaticLogic" && typeof val.code === "string") {
-            try { val = new Function(`return (${val.code.trim()})`)(); } catch { val = val.code; }
-          } else if (typeof val === "string") {
-            if (val === "true") val = true;
-            else if (val === "false") val = false;
-            else if (val === "null") val = null;
-            else if (val.trim() !== "" && !isNaN(Number(val))) val = Number(val);
-            else if ((val.startsWith("{") && val.endsWith("}")) || (val.startsWith("[") && val.endsWith("]"))) {
-              try { val = JSON.parse(val); } catch {}
-            }
-          }
-          metadata[key] = val;
-        }
-      }
+      const metaNode = nodes.find((n: any) => n.type === "Block" && (n.id === "Metadata" || n.id === "metadata"));
+      const metadata: Record<string, any> = metaNode ? await transpileProps(metaNode.props) : {};
       const headings: any[] = [];
       const walkNodes = (nodeList: any): void => {
         if (!Array.isArray(nodeList)) return;
