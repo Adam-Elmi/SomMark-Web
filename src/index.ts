@@ -1,11 +1,22 @@
 // @ts-nocheck
 import { transformWithEsbuild } from "vite";
+import { build as esbuildBuild } from "esbuild";
 import type { Plugin, ViteDevServer, PreviewServer } from "vite";
-import SomMark, { HTML, transpile, findAndLoadConfig } from "sommark";
+import SomMark, { HTML, transpile, findAndLoadConfig, parseSync } from "sommark";
+import { getMetadata, getHeadings, glob as smarkGlob } from "./variables/index.js";
+import {
+  buildDynamicRouteMap,
+  matchDynamicRequest,
+  isLayoutFile,
+  extractHeadings,
+  type DynamicConfig,
+  type DynamicRouteEntry,
+  type HeadingEntry,
+} from "./dynamic.js";
 import path from "node:path";
-import { readdir, readFile, mkdir, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
+import fs from "node:fs";
 import { existsSync, statSync } from "node:fs";
-import { createRequire } from "node:module";
 import crypto from "node:crypto";
 import ora from "ora";
 import pc from "picocolors";
@@ -17,7 +28,7 @@ export interface SomMarkPluginOptions {
   /** The directory containing your .smark pages. Defaults to "src/pages" */
   pagesDir?: string;
   /** Custom fallback target strategy for styling properties. Defaults to "style" */
-  fallbackTarget?: "style" | "class" | false;
+  fallbackTarget?: true | "style" | false;
   /** A custom validation function run before transpilation finishes */
   outputValidator?: (result: string) => void | Promise<void>;
   /** Custom import aliases for virtual path resolution */
@@ -41,6 +52,12 @@ export interface SomMarkPluginOptions {
     allowedOrigins?: string[];
     allowedExtensions?: string[];
   };
+  /**
+   * Dynamic route folders. Each key is a top-level folder name under pages/.
+   * The value is an async function returning an array of data items.
+   * Each item must have a `slug` string. Everything else becomes `__props`.
+   */
+  dynamic?: DynamicConfig;
   /** The production URL of the site, used for canonical URLs, sitemaps, etc. */
   siteUrl?: string;
   /** Toggles automatic generation of sitemap.xml. Defaults to true */
@@ -49,6 +66,24 @@ export interface SomMarkPluginOptions {
   robots?: boolean;
   /** Toggles build-time SEO auditing. Defaults to true */
   seoAudit?: boolean;
+  /**
+   * Generate an RSS/Atom feed at /feed.xml.
+   * Requires `siteUrl` to be set.
+   */
+  rss?: {
+    /** Feed title */
+    title: string;
+    /** Feed description */
+    description: string;
+    /** Returns the list of feed items */
+    items: () => Promise<{
+      title: string;
+      url: string;
+      description?: string;
+      date?: string;
+      author?: string;
+    }[]>;
+  };
 }
 
 /**
@@ -59,154 +94,244 @@ export interface SomMarkPluginOptions {
 export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugin {
   let projectRoot = process.cwd();
   let pagesDir = path.resolve(projectRoot, options.pagesDir || "src/pages");
+  let publicDir = path.resolve(projectRoot, "public");
   let smarkConfig: any = null;
   let minify = true;
 
-  const dualCache = new Map<string, { html: string; js: string }>();
+  const dualCache = new Map<string, { html: string; css: string; js: string }>();
+  const globCache = new Map<string, any>();
+  const dynamicRouteMap = new Map<string, DynamicRouteEntry>();
+  let compileQueue = Promise.resolve();
   let isBuild = false;
   let outDir = "dist";
   const seoWarningsMap = new Map<string, string[]>();
+
+  // Node.js implementation of glob() — runs in Node.js as a bridge function,
+  // so it can safely close over globCache/projectRoot/pagesDir without serialization.
+  const headingIds: Record<string, number> = { h1: 1, h2: 2, h3: 3, h4: 4, h5: 5, h6: 6 };
+  function getNodeText(body: any): string {
+    if (!Array.isArray(body)) return "";
+    return body.map((n: any) => (n.type === "Text" ? (n.text || "") : n.body ? getNodeText(n.body) : "")).join("");
+  }
+  function slugifyText(text: string): string {
+    return text.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+  }
+  const processGlobResult = async (pattern: string): Promise<any[]> => {
+    const pagesDirRel = path.relative(projectRoot, pagesDir).replace(/\\/g, "/") + "/";
+    const results: any[] = [];
+    // @ts-ignore — fs.promises.glob requires Node.js 22+
+    for await (const relPath of fs.promises.glob(pattern, { cwd: projectRoot })) {
+      const filePath = relPath.replace(/\\/g, "/");
+      const absPath = path.join(projectRoot, filePath);
+      if (isLayoutFile(absPath)) continue;
+      const src = await readFile(absPath, "utf-8");
+      const nodes = parseSync(src);
+      const fileStat = await stat(absPath);
+      const lastUpdate = new Date(fileStat.mtimeMs).toISOString();
+      const fmNode = nodes.find((n: any) => n.type === "Block" && (n.id === "Metadata" || n.id === "metadata"));
+      const metadata: Record<string, any> = {};
+      if (fmNode && fmNode.props) {
+        for (const key of Object.keys(fmNode.props)) {
+          if (!isNaN(Number(key))) continue;
+          let val = fmNode.props[key];
+          if (val && typeof val === "object" && val.type === "StaticLogic" && typeof val.code === "string") {
+            try { val = eval(`(${val.code.trim()})`); } catch { val = val.code; }
+          } else if (typeof val === "string") {
+            if (val === "true") val = true;
+            else if (val === "false") val = false;
+            else if (val === "null") val = null;
+            else if (val.trim() !== "" && !isNaN(Number(val))) val = Number(val);
+            else if ((val.startsWith("{") && val.endsWith("}")) || (val.startsWith("[") && val.endsWith("]"))) {
+              try { val = JSON.parse(val); } catch {}
+            }
+          }
+          metadata[key] = val;
+        }
+      }
+      const headings: any[] = [];
+      const walkNodes = (nodeList: any): void => {
+        if (!Array.isArray(nodeList)) return;
+        for (const node of nodeList) {
+          const level = headingIds[node.id];
+          if (level) {
+            const text = getNodeText(node.body).trim();
+            if (text) headings.push({ level, text, id: slugifyText(text) });
+          }
+          if (node.body) walkNodes(node.body);
+        }
+      };
+      walkNodes(nodes);
+      const firstH1 = headings.find((h: any) => h.level === 1);
+      let url = filePath;
+      if (url.startsWith(pagesDirRel)) url = url.slice(pagesDirRel.length);
+      url = url.replace(/\.smark$/, "").replace(/\/index$/, "").replace(/^index$/, "");
+      const slug = url || "index";
+      url = "/" + url;
+      const title = metadata.title || firstH1?.text || slug;
+      results.push({ url, filePath, metadata, headings, title, lastUpdate });
+    }
+    return results;
+  };
+  const hostGlob = async (pattern: string): Promise<any[]> => {
+    if (globCache.has(pattern)) return globCache.get(pattern);
+    const result = await processGlobResult(pattern);
+    globCache.set(pattern, result);
+    return result;
+  };
+
+  const dataCache = new Map<string, any[]>();
+
+  const fetchAllData = async (): Promise<Record<string, any[]>> => {
+    const allData: Record<string, any[]> = {};
+    for (const [folder, fn] of Object.entries(options.dynamic ?? {})) {
+      if (isBuild && dataCache.has(folder)) {
+        allData[folder] = dataCache.get(folder)!;
+      } else {
+        const items = await fn();
+        if (isBuild) dataCache.set(folder, items);
+        allData[folder] = items;
+      }
+    }
+    return allData;
+  };
+
+  const fetchAllPages = async (): Promise<any[]> => {
+    const pagesDirRel = path.relative(projectRoot, pagesDir).replace(/\\/g, "/");
+    const staticPages = await hostGlob(`${pagesDirRel}/**/*.smark`);
+    const dynamicPages = [...dynamicRouteMap.values()].map(d => ({
+      url: d.url,
+      filePath: path.relative(projectRoot, d.layoutFile).replace(/\\/g, "/"),
+      isDynamic: true,
+      slug: d.slug,
+      folder: d.folder,
+      props: d.props,
+      metadata: JSON.parse(JSON.stringify(d.props)),
+      headings: d.headings ?? [],
+      title: (d.props.title as string) || d.slug,
+      lastUpdate: "",
+    }));
+    return [
+      ...staticPages.map(p => ({ ...p, isDynamic: false, props: {}, slug: "" })),
+      ...dynamicPages,
+    ];
+  };
 
   const printLogo = () => {
     console.log(pc.cyan(`\n  SomMark Web`));
     console.log(pc.dim(`  v1.0.0 • Vite Plugin\n`));
   };
 
-  const hostImportCall = async (packageName: string, exportName: string, args: any[]) => {
-    let resolvedPath = packageName;
-    
-    if (packageName.startsWith("http://") || packageName.startsWith("https://")) {
-      const cacheDir = path.join(projectRoot, "node_modules", ".cache", "sommark-web");
-      await mkdir(cacheDir, { recursive: true });
-      
-      const hash = crypto.createHash("md5").update(packageName).digest("hex");
-      resolvedPath = path.join(cacheDir, `network-${hash}.js`);
-      
-      if (!existsSync(resolvedPath)) {
-        if (options.showSpinner !== false) {
-          console.log(pc.cyan("[SomMark]") + pc.dim(` Fetching package: ${packageName}`));
-        }
-        const res = await fetch(packageName);
-        if (!res.ok) {
-          throw new Error(`Failed to fetch network package from ${packageName}: ${res.statusText}`);
-        }
-        let code = await res.text();
-        
-        // Resolve internal esm.sh redirect exports
-        const redirectRegex = /from\s+["'](\/[^"']+\.mjs)["']/;
-        const match = code.match(redirectRegex);
-        if (match) {
-          const redirectUrl = "https://esm.sh" + match[1];
-          const redirectRes = await fetch(redirectUrl);
-          if (!redirectRes.ok) {
-            throw new Error(`Failed to fetch redirected network package from ${redirectUrl}: ${redirectRes.statusText}`);
-          }
-          code = await redirectRes.text();
-        }
-        
-        await writeFile(resolvedPath, code, "utf-8");
-      }
-    } else if (packageName.startsWith(".") || packageName.startsWith("/")) {
-      resolvedPath = path.resolve(projectRoot, packageName);
-      const ext = path.extname(resolvedPath);
-      if (ext === ".jsx" || ext === ".tsx" || ext === ".ts") {
-        const cacheDir = path.join(projectRoot, "node_modules", ".cache", "sommark-web");
-        await mkdir(cacheDir, { recursive: true });
-        
-        const content = await readFile(resolvedPath, "utf-8");
-        const hash = crypto.createHash("md5").update(content + resolvedPath).digest("hex");
-        const transpiledPath = path.join(cacheDir, `local-${hash}.js`);
-        
-        if (!existsSync(transpiledPath)) {
-          const loader = ext.slice(1) as "jsx" | "tsx" | "ts";
-          const minified = await transformWithEsbuild(content, resolvedPath, {
-            loader,
-            format: "esm"
-          });
-          await writeFile(transpiledPath, minified.code, "utf-8");
-        }
-        resolvedPath = transpiledPath;
-      }
-    } else {
-      try {
-        const require = createRequire(path.join(projectRoot, "package.json"));
-        resolvedPath = require.resolve(packageName);
-      } catch (e) {
-        resolvedPath = packageName;
-      }
-    }
-    
-    const mod = await import(resolvedPath);
-    let val = undefined;
-    if (mod[exportName] !== undefined) {
-      val = mod[exportName];
-    } else if (mod.default !== undefined && mod.default !== null && (typeof mod.default === "object" || typeof mod.default === "function")) {
-      val = (mod.default as any)[exportName];
-    }
-      
-    if (typeof val === "function") {
-      return await val(...args);
-    }
-    return val;
-  };
-
   const buildMapper = (smarkFile: string) => {
     const baseMapper = options.mapperFile || smarkConfig.mapperFile || HTML;
     const mapper = baseMapper.clone();
     const fileDir = path.dirname(smarkFile);
-    mapper.register("script", async function (this: any, { args, content }) {
-      let src = args.src || args[0];
+    // Files under publicDir are served at the root in production, not under /public/
+    const toUrlPath = (abs: string) =>
+      "/" + (abs.startsWith(publicDir + path.sep)
+        ? path.relative(publicDir, abs)
+        : path.relative(projectRoot, abs));
+    mapper.register("script", async function (this: any, { props, content }) {
+      let src = props.src || props[0];
       if (src && typeof src === "string" && !src.startsWith("http")) {
         const abs = await resolveAssetPath(src, fileDir, projectRoot);
-        if (abs) src = "/" + path.relative(projectRoot, abs);
+        if (abs) src = toUrlPath(abs);
       }
-      return this.tag("script").attributes({ ...args, src }).body(content);
+      return this.tag("script").attributes({ ...props, src }).body(content);
     });
-    mapper.register("link", async function (this: any, { args }) {
-      let href = args.href || args[0];
+    mapper.register("link", async function (this: any, { props }) {
+      let href = props.href || props[0];
       if (href && typeof href === "string" && !href.startsWith("http")) {
         const abs = await resolveAssetPath(href, fileDir, projectRoot);
-        if (abs) href = "/" + path.relative(projectRoot, abs);
+        if (abs) href = toUrlPath(abs);
       }
-      return this.tag("link").attributes({ ...args, href }).selfClose();
+      return this.tag("link").attributes({ ...props, href }).selfClose();
     });
+    mapper.register(["Metadata", "metadata"], function () { return ""; }, { rules: { is_self_closing: true } });
     return mapper;
   };
 
-  const compileSmarkDual = async (smarkFile: string) => {
-    if (dualCache.has(smarkFile)) return dualCache.get(smarkFile)!;
-    if (!smarkConfig) smarkConfig = await findAndLoadConfig(projectRoot);
+  type RouteData = { slug?: string; url?: string; props?: Record<string, unknown>; headings?: HeadingEntry[] };
 
-    const entryContent = await readFile(smarkFile, "utf-8");
-    const placeholders = {
-      ...smarkConfig.placeholders,
-      ...options.placeholders,
-      pagePath: smarkFile,
-      page: smarkFile
-    };
+  const compileSmarkDual = (smarkFile: string, routeData?: RouteData): Promise<{ html: string; css: string; js: string }> => {
+    const slug     = routeData?.slug     ?? "";
+    const props    = routeData?.props    ?? {};
+    const headings = routeData?.headings;
+    // headings presence changes output, so encode it in the cache key
+    const cacheKey = slug
+      ? `${smarkFile}:${slug}${headings ? ":h" : ""}`
+      : smarkFile;
 
-    const [html, js] = await new SomMark({
-      src: entryContent,
-      format: "html",
-      filename: smarkFile,
-      placeholders,
-      mapperFile: buildMapper(smarkFile),
-      customProps: options.customProps || smarkConfig.customProps || ["content"],
-      fallbackTarget: options.fallbackTarget !== undefined ? options.fallbackTarget : smarkConfig.fallbackTarget,
-      outputValidator: options.outputValidator !== undefined ? options.outputValidator : smarkConfig.outputValidator,
-      importAliases: { ...smarkConfig.importAliases, ...options.importAliases },
-      security: { ...smarkConfig.security, ...options.security },
-      showSpinner: options.showSpinner !== undefined ? options.showSpinner : smarkConfig.showSpinner,
-      removeComments: options.removeComments !== undefined ? options.removeComments : smarkConfig.removeComments,
-      dualOutput: true,
-    }).transpile() as unknown as [string, string];
+    if (dualCache.has(cacheKey)) return Promise.resolve(dualCache.get(cacheKey)!);
+    const task = compileQueue.then(async () => {
+      if (dualCache.has(cacheKey)) return dualCache.get(cacheKey)!;
+      if (!smarkConfig) smarkConfig = await findAndLoadConfig(projectRoot);
 
-    dualCache.set(smarkFile, { html, js });
-    return { html, js };
+      const entryContent = await readFile(smarkFile, "utf-8");
+      const placeholders = {
+        ...smarkConfig.placeholders,
+        ...options.placeholders,
+        pagePath: smarkFile,
+        page: smarkFile
+      };
+
+      const pagesDirRel = path.relative(projectRoot, pagesDir).replace(/\\/g, "/");
+      const currentFile = path.relative(projectRoot, smarkFile).replace(/\\/g, "/");
+      let currentUrl: string;
+      if (routeData?.url) {
+        currentUrl = routeData.url;
+      } else {
+        const currentUrlRel = path.relative(pagesDir, smarkFile).replace(/\\/g, "/");
+        currentUrl = "/" + currentUrlRel.replace(/\.smark$/, "");
+        if (currentUrl.endsWith("/index")) currentUrl = currentUrl.slice(0, -5) || "/";
+      }
+
+      const [html, css, js] = await new SomMark({
+        src: entryContent,
+        format: "html",
+        filename: smarkFile,
+        placeholders,
+        mapperFile: buildMapper(smarkFile),
+        customProps: options.customProps || smarkConfig.customProps || ["content"],
+        fallbackTarget: options.fallbackTarget !== undefined ? options.fallbackTarget : smarkConfig.fallbackTarget,
+        outputValidator: options.outputValidator !== undefined ? options.outputValidator : smarkConfig.outputValidator,
+        importAliases: { ...smarkConfig.importAliases, ...options.importAliases },
+        security: { ...smarkConfig.security, ...options.security },
+        showSpinner: options.showSpinner !== undefined ? options.showSpinner : smarkConfig.showSpinner,
+        removeComments: options.removeComments !== undefined ? options.removeComments : smarkConfig.removeComments,
+        webOutputs: true,
+        variables: {
+          __pagesDir: pagesDirRel,
+          __currentFile: currentFile,
+          __currentUrl: currentUrl,
+          __props: props,
+          __slug: slug,
+          __headings: headings ?? [],
+          __siteUrl: options.siteUrl || smarkConfig.siteUrl || "",
+          __isDev: !isBuild,
+          ...smarkConfig.variables,
+          ...options.variables,
+          glob: smarkGlob,
+          getMetadata,
+          getHeadings,
+          __smarkData: await fetchAllData(),
+          __smarkPages: await fetchAllPages(),
+          getData: (folder: string) => (__smarkData[folder] || []),
+          getPages: () => __smarkPages,
+        },
+      }).transpile() as unknown as [string, string, string];
+
+      dualCache.set(cacheKey, { html, css, js });
+      return { html, css, js };
+    });
+    // Always keep compileQueue resolved so a failed compilation doesn't permanently
+    // block future compilations (a rejected promise swallows all chained .then callbacks).
+    compileQueue = task.catch(() => {});
+    return task;
   };
 
-  const getTranspiledHtml = async (smarkFile: string) => (await compileSmarkDual(smarkFile)).html;
-  const getTranspiledJs  = async (smarkFile: string) => (await compileSmarkDual(smarkFile)).js;
+  const getTranspiledHtml = async (smarkFile: string, rd?: RouteData) => (await compileSmarkDual(smarkFile, rd)).html;
+  const getTranspiledCss  = async (smarkFile: string, rd?: RouteData) => (await compileSmarkDual(smarkFile, rd)).css;
+  const getTranspiledJs   = async (smarkFile: string, rd?: RouteData) => (await compileSmarkDual(smarkFile, rd)).js;
 
   return {
     name: "sommark-web",
@@ -223,13 +348,25 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
 
       const spinner = ora(pc.dim("Scanning SomMark pages...")).start();
       const routes = await scanPages(pagesDir);
-      spinner.succeed(pc.green(`Found ${routes.length} pages`));
+
+      // Build dynamic route map from `dynamic` config option
+      dynamicRouteMap.clear();
+      if (options.dynamic) {
+        const built = await buildDynamicRouteMap(options.dynamic, pagesDir, projectRoot);
+        for (const [key, entry] of built) dynamicRouteMap.set(key, entry);
+      }
+
+      spinner.succeed(pc.green(`Found ${routes.length} static + ${dynamicRouteMap.size} dynamic pages`));
 
       const input: Record<string, string> = {};
 
       for (const route of routes) {
         const htmlPath = route.url === "/" ? "index.html" : route.url.slice(1) + ".html";
         input[route.url === "/" ? "index" : route.url.slice(1).replace(/\//g, "-")] = htmlPath;
+      }
+      for (const [htmlPath, dyn] of dynamicRouteMap.entries()) {
+        const key = dyn.url === "/" ? "index" : dyn.url.slice(1).replace(/\//g, "-");
+        input[key] = htmlPath;
       }
 
       const external = command === "build" ? [ /^\/sommark-runtime\// ] : [];
@@ -247,50 +384,124 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
     configResolved(config) {
       projectRoot = config.root;
       pagesDir = path.resolve(projectRoot, options.pagesDir || "src/pages");
+      publicDir = path.resolve(config.publicDir ?? path.join(projectRoot, "public"));
       minify = config.build?.minify !== false;
       isBuild = config.command === "build";
       outDir = path.resolve(projectRoot, config.build?.outDir || "dist");
     },
 
-    resolveId(id) {
+    resolveId(id, importer) {
+      // In dev, resolve relative imports from virtual runtime modules
+      if (importer && id.startsWith(".")) {
+        if (importer.startsWith("\0sommark-runtime:")) {
+          const smarkFile = importer.slice("\0sommark-runtime:".length);
+          return path.resolve(path.dirname(smarkFile), id);
+        }
+        if (importer.startsWith("\0sommark-dynamic-runtime:")) {
+          const runtimePath = importer.slice("\0sommark-dynamic-runtime:".length);
+          const dyn = dynamicRouteMap.get(runtimePath + ".html");
+          if (dyn) return path.resolve(path.dirname(dyn.layoutFile), id);
+        }
+      }
       const cleanId = id.split("?")[0];
       if (cleanId.startsWith("/sommark-runtime/")) {
-        const relativeSmarkPath = cleanId.slice("/sommark-runtime/".length).replace(/\.js$/, "");
-        const absoluteSmarkPath = path.resolve(projectRoot, relativeSmarkPath);
+        const runtimePath = cleanId.slice("/sommark-runtime/".length).replace(/\.js$/, "");
+        // Dynamic route runtime: keyed by expanded URL (e.g. posts/hello-world)
+        if (dynamicRouteMap.has(runtimePath + ".html")) {
+          return `\0sommark-dynamic-runtime:${runtimePath}`;
+        }
+        const absoluteSmarkPath = path.resolve(projectRoot, runtimePath);
         return `\0sommark-runtime:${absoluteSmarkPath}`;
       }
       if (cleanId.endsWith(".html")) {
         const pathname = cleanId.startsWith("/") ? cleanId : "/" + cleanId;
         const smarkFile = resolveSmarkFile(pathname, pagesDir);
-        if (smarkFile) {
-          return path.join(projectRoot, cleanId);
-        }
+        if (smarkFile) return path.join(projectRoot, cleanId);
+        // Dynamic route HTML
+        const relHtml = (pathname.startsWith("/") ? pathname.slice(1) : pathname);
+        if (dynamicRouteMap.has(relHtml)) return path.join(projectRoot, cleanId);
       }
       return null;
     },
 
     async load(id) {
       const cleanId = id.split("?")[0];
+
+      if (cleanId.startsWith("\0sommark-dynamic-runtime:")) {
+        const runtimePath = cleanId.slice("\0sommark-dynamic-runtime:".length);
+        const dyn = dynamicRouteMap.get(runtimePath + ".html");
+        if (dyn) {
+          try {
+            const js = await getTranspiledJs(dyn.layoutFile, { slug: dyn.slug, url: dyn.url, props: dyn.props });
+            return { code: js, map: { mappings: "" } };
+          } catch (err: any) {
+            this.error(`[SomMark] ${err.message ?? err}`);
+          }
+        }
+      }
+
       if (cleanId.startsWith("\0sommark-runtime:")) {
         const absoluteSmarkPath = cleanId.slice("\0sommark-runtime:".length);
         try {
           const js = await getTranspiledJs(absoluteSmarkPath);
-          return {
-            code: js,
-            map: { mappings: "" }
-          };
+          return { code: js, map: { mappings: "" } };
         } catch (err: any) {
-          this.error(`[SomMark] ${err.message}`);
+          this.error(`[SomMark] ${err.message ?? err}`);
         }
       }
+
       if (cleanId.endsWith(".html")) {
-        const pathname = "/" + path.relative(projectRoot, cleanId);
+        const relHtml = path.relative(projectRoot, cleanId).replace(/\\/g, "/");
+        const pathname = "/" + relHtml;
+
+        // Static route
         const smarkFile = resolveSmarkFile(pathname, pagesDir);
         if (smarkFile) {
           try {
-            return await getTranspiledHtml(smarkFile);
+            let html = await getTranspiledHtml(smarkFile);
+            const css = await getTranspiledCss(smarkFile);
+            if (css) {
+              if (isBuild) {
+                const hash = crypto.createHash("md5").update(css).digest("hex").slice(0, 8);
+                const assetPath = `assets/smark-page-${hash}.css`;
+                this.emitFile({ type: "asset", fileName: assetPath, source: css });
+                html = html.replace("</head>", `  <link rel="stylesheet" href="/${assetPath}">\n</head>`);
+              } else {
+                html = html.replace("</head>", `  <style>${css}</style>\n</head>`);
+              }
+            }
+            return html;
           } catch (err: any) {
-            this.error(`[SomMark] ${err.message}`);
+            this.error(`[SomMark] ${err.message ?? err}`);
+          }
+        }
+
+        // Dynamic route
+        const dyn = dynamicRouteMap.get(relHtml);
+        if (dyn) {
+          try {
+            // Pass 1: compile without headings to extract them
+            if (!dyn.headings) {
+              const firstHtml = await getTranspiledHtml(dyn.layoutFile, { slug: dyn.slug, url: dyn.url, props: dyn.props });
+              dyn.headings = extractHeadings(firstHtml);
+            }
+            // Pass 2: compile with headings — separate cache key (:h suffix)
+            const rd: RouteData = { slug: dyn.slug, url: dyn.url, props: dyn.props, headings: dyn.headings };
+            let html = await getTranspiledHtml(dyn.layoutFile, rd);
+            const css = await getTranspiledCss(dyn.layoutFile, rd);
+            if (css) {
+              if (isBuild) {
+                const hash = crypto.createHash("md5").update(css).digest("hex").slice(0, 8);
+                const assetPath = `assets/smark-page-${hash}.css`;
+                this.emitFile({ type: "asset", fileName: assetPath, source: css });
+                html = html.replace("</head>", `  <link rel="stylesheet" href="/${assetPath}">\n</head>`);
+              } else {
+                html = html.replace("</head>", `  <style>${css}</style>\n</head>`);
+              }
+            }
+            return html;
+          } catch (err: any) {
+            this.error(`[SomMark] ${err.message ?? err}`);
           }
         }
       }
@@ -299,21 +510,35 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
 
     async generateBundle(outputOptions, bundle) {
       const routes = await scanPages(pagesDir);
+
+      const bundleJs = async (code: string, resolveDir: string): Promise<string> => {
+        const result = await esbuildBuild({
+          stdin: { contents: code, resolveDir, loader: "js" },
+          bundle: true,
+          write: false,
+          format: "esm",
+          minify,
+          platform: "browser",
+        });
+        return result.outputFiles[0].text;
+      };
+
+      // Static page JS
       for (const route of routes) {
         let clientJs = await getTranspiledJs(route.filePath);
         if (clientJs && clientJs.trim()) {
           const relPath = path.relative(projectRoot, route.filePath).replace(/\\/g, "/");
-          if (minify) {
-            const minified = await transformWithEsbuild(clientJs, `${relPath}.js`, {
-              minify: true
-            });
-            clientJs = minified.code;
-          }
-          this.emitFile({
-            type: "asset",
-            fileName: `sommark-runtime/${relPath}.js`,
-            source: clientJs
-          });
+          clientJs = await bundleJs(clientJs, path.dirname(route.filePath));
+          this.emitFile({ type: "asset", fileName: `sommark-runtime/${relPath}.js`, source: clientJs });
+        }
+      }
+
+      // Dynamic page JS
+      for (const [, dyn] of dynamicRouteMap.entries()) {
+        let clientJs = await getTranspiledJs(dyn.layoutFile, { slug: dyn.slug, url: dyn.url, props: dyn.props });
+        if (clientJs && clientJs.trim()) {
+          clientJs = await bundleJs(clientJs, path.dirname(dyn.layoutFile));
+          this.emitFile({ type: "asset", fileName: `sommark-runtime/${dyn.url.slice(1)}.js`, source: clientJs });
         }
       }
 
@@ -322,11 +547,16 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
       const sitemap = options.sitemap !== undefined ? options.sitemap : (smarkConfig?.sitemap !== false);
       const robots = options.robots !== undefined ? options.robots : (smarkConfig?.robots !== false);
 
+      const allRoutes = [
+        ...routes,
+        ...[...dynamicRouteMap.values()].map(d => ({ url: d.url, filePath: d.smarkFile })),
+      ];
+
       if (siteUrl) {
         const cleanSiteUrl = siteUrl.endsWith("/") ? siteUrl.slice(0, -1) : siteUrl;
 
         if (sitemap) {
-          const xmlUrls = routes
+          const xmlUrls = allRoutes
             .filter(r => r.url !== "/404")
             .map(r => {
               const loc = cleanSiteUrl + r.url;
@@ -354,6 +584,30 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
         }
       } else if (sitemap || robots) {
         console.log(pc.yellow(`\n⚠️  [SomMark SEO Warning] "siteUrl" is not defined. Skipping sitemap.xml and robots.txt generation.`));
+      }
+
+      // Generate RSS feed
+      if (options.rss) {
+        if (!siteUrl) {
+          console.log(pc.yellow(`\n⚠️  [SomMark] rss: "siteUrl" is not defined. Skipping feed.xml generation.`));
+        } else {
+          const cleanSiteUrl = (siteUrl as string).endsWith("/") ? (siteUrl as string).slice(0, -1) : (siteUrl as string);
+          try {
+            const feedItems = await options.rss.items();
+            const now = new Date().toUTCString();
+            const itemsXml = feedItems.map(item => {
+              const fullUrl = item.url.startsWith("http") ? item.url : cleanSiteUrl + item.url;
+              const pubDate = item.date ? new Date(item.date).toUTCString() : now;
+              const desc = item.description ? `<description><![CDATA[${item.description}]]></description>` : "";
+              const author = item.author ? `<author>${item.author}</author>` : "";
+              return `  <item>\n    <title><![CDATA[${item.title}]]></title>\n    <link>${fullUrl}</link>\n    <guid>${fullUrl}</guid>\n    ${desc}\n    ${author}\n    <pubDate>${pubDate}</pubDate>\n  </item>`;
+            }).join("\n");
+            const feedXml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n<channel>\n  <title><![CDATA[${options.rss.title}]]></title>\n  <link>${cleanSiteUrl}</link>\n  <description><![CDATA[${options.rss.description}]]></description>\n  <lastBuildDate>${now}</lastBuildDate>\n${itemsXml}\n</channel>\n</rss>\n`;
+            this.emitFile({ type: "asset", fileName: "feed.xml", source: feedXml });
+          } catch (e: any) {
+            console.log(pc.yellow(`\n⚠️  [SomMark] rss: items() threw — ${e.message}`));
+          }
+        }
       }
     },
 
@@ -412,10 +666,22 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
         const pathname = url.pathname;
 
         const smarkFile = resolveSmarkFile(pathname, pagesDir);
-        if (smarkFile) {
-          console.log(`${pc.cyan("[SomMark]")} ${pc.dim("Serving:")} ${pc.white(pathname)}`);
+        const dynEntry = !smarkFile ? matchDynamicRequest(pathname, dynamicRouteMap) : null;
+        if (dynEntry && !dynEntry.headings) {
+          const firstHtml = await getTranspiledHtml(dynEntry.layoutFile, { slug: dynEntry.slug, url: dynEntry.url, props: dynEntry.props });
+          dynEntry.headings = extractHeadings(firstHtml);
+        }
+        const dynRd: RouteData | undefined = dynEntry
+          ? { slug: dynEntry.slug, url: dynEntry.url, props: dynEntry.props, headings: dynEntry.headings }
+          : undefined;
+
+        if (smarkFile || dynEntry) {
+          const label = dynEntry ? "Serving (dynamic):" : "Serving:";
+          console.log(`${pc.cyan("[SomMark]")} ${pc.dim(label)} ${pc.white(pathname)}`);
+          const activeFile = smarkFile || dynEntry!.layoutFile;
+          const rd: RouteData | undefined = dynRd;
           try {
-            const html = await getTranspiledHtml(smarkFile);
+            let html = await getTranspiledHtml(activeFile, rd);
             const transformed = await server.transformIndexHtml(pathname, html);
             res.statusCode = 200;
             res.setHeader("Content-Type", "text/html");
@@ -423,8 +689,7 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
             return;
           } catch (err: any) {
             console.error(`${pc.red("[SomMark Error]")} ${pc.white(pathname)}:`, err.message || err);
-
-            const src = await readFile(smarkFile, "utf-8").catch(() => "");
+            const src = await readFile(activeFile, "utf-8").catch(() => "");
             const errorHtml = buildErrorHtml(err, pathname, src);
             res.statusCode = 500;
             res.setHeader("Content-Type", "text/html");
@@ -436,13 +701,17 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
             }
             return;
           }
+        } else if (pathname.endsWith(".smark") && existsSync(path.join(publicDir, pathname))) {
+          // File exists in public/ — let Vite's static middleware serve it as-is
+          next();
+          return;
         } else if (pathname.endsWith(".smark") || (pathname !== "/" && !pathname.includes(".") && !pathname.startsWith("/@vite/"))) {
           // Serve custom 404.smark if it exists
           const notFoundPage = path.join(pagesDir, "404.smark");
           if (existsSync(notFoundPage)) {
             console.log(`${pc.cyan("[SomMark]")} ${pc.dim("404:")} ${pc.white(pathname)}`);
             try {
-              const html = await getTranspiledHtml(notFoundPage);
+              let html = await getTranspiledHtml(notFoundPage);
               const transformed = await server.transformIndexHtml(pathname, html);
               res.statusCode = 404;
               res.setHeader("Content-Type", "text/html");
@@ -467,7 +736,17 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
       order: "pre",
       async handler(html, ctx) {
         if (!ctx || !ctx.path) return html;
-        const smarkFile = resolveSmarkFile(ctx.path, pagesDir);
+        let smarkFile = resolveSmarkFile(ctx.path, pagesDir);
+        let rd: RouteData | undefined;
+
+        if (!smarkFile) {
+          // Check dynamic route map (populated at build time)
+          const relHtml = ctx.path.startsWith("/") ? ctx.path.slice(1) : ctx.path;
+          const adjHtml = relHtml.replace(/\.html$/, "") + ".html";
+          const dyn = dynamicRouteMap.get(adjHtml);
+          if (dyn) { smarkFile = dyn.layoutFile; rd = { slug: dyn.slug, url: dyn.url, props: dyn.props }; }
+        }
+
         if (!smarkFile) return html;
 
         // Run SEO Auditor
@@ -486,21 +765,20 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
             }
           }
         }
-        
+
         try {
-          const clientJs = await getTranspiledJs(smarkFile);
+          const clientJs = await getTranspiledJs(smarkFile, rd);
           if (clientJs && clientJs.trim()) {
-            const relPath = path.relative(projectRoot, smarkFile).replace(/\\/g, "/");
-            const virtualUrl = `/sommark-runtime/${relPath}.js`;
+            let virtualUrl: string;
+            if (rd?.slug) {
+              virtualUrl = `/sommark-runtime/${rd.url!.slice(1)}.js`;
+            } else {
+              const relPath = path.relative(projectRoot, smarkFile).replace(/\\/g, "/");
+              virtualUrl = `/sommark-runtime/${relPath}.js`;
+            }
             return {
               html,
-              tags: [
-                {
-                  tag: "script",
-                  attrs: { type: "module", src: virtualUrl },
-                  injectTo: "body"
-                }
-              ]
+              tags: [{ tag: "script", attrs: { type: "module", src: virtualUrl }, injectTo: "body" }]
             };
           }
         } catch {
@@ -515,11 +793,17 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
         console.log(`${pc.cyan("[SomMark]")} ${pc.dim("Config updated. Reloading configurations...")}`);
         smarkConfig = await findAndLoadConfig(projectRoot);
         dualCache.clear();
+        globCache.clear();
+        dynamicRouteMap.clear();
         server.ws.send({ type: "full-reload" });
       } else if (file.endsWith(".smark")) {
-        dualCache.clear();
+        // Clear all cache entries for this file (all param variants share the same smarkFile prefix)
+        for (const key of dualCache.keys()) {
+          if (key === file || key.startsWith(file + ":")) dualCache.delete(key);
+        }
+        globCache.clear();
         for (const mod of server.moduleGraph.idToModuleMap.values()) {
-          if (mod.id && mod.id.startsWith("\0sommark-runtime:")) {
+          if (mod.id && (mod.id.startsWith("\0sommark-runtime:") || mod.id.startsWith("\0sommark-dynamic-runtime:"))) {
             server.moduleGraph.invalidateModule(mod);
           }
         }
@@ -751,10 +1035,13 @@ body{
 </html>`;
 }
 
+// ── Dynamic routing utilities moved to src/dynamic.ts ─────────────────────────
+
 /**
  * Resolves a source path (like /logo.png) to an absolute file path.
  * Searches in project root, src, and public directories.
  */
+
 export async function resolveAssetPath(src: string, fileDir: string, projectRoot: string): Promise<string | null> {
   const candidates: string[] = [];
   if (src.startsWith("/")) {
@@ -807,8 +1094,9 @@ export async function scanPages(dir: string, baseDir: string = dir): Promise<{ u
     if (entry.isDirectory()) {
       results.push(...(await scanPages(fullPath, baseDir)));
     } else if (entry.name.endsWith(".smark")) {
-      const relativePath = path.relative(baseDir, fullPath);
-      let url = "/" + relativePath.replace(/\.smark$/, "").replace(/\\/g, "/");
+      const relativePath = path.relative(baseDir, fullPath).replace(/\\/g, "/");
+      if (isLayoutFile(fullPath)) continue; // reserved layout templates, not standalone pages
+      let url = "/" + relativePath.replace(/\.smark$/, "");
       if (url.endsWith("/index")) url = url.slice(0, -5) || "/";
       results.push({ url, filePath: fullPath });
     }
@@ -868,58 +1156,98 @@ export function auditSEO(html: string): string[] {
  * Premium default 404 HTML page when custom 404.smark is not provided.
  */
 const default404Html = `<!DOCTYPE html>
-<html>
-  <head>
-    <title>404 Not Found</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body {
-        background: #0f172a;
-        color: #94a3b8;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        margin: 0;
-        text-align: center;
-      }
-      .container {
-        padding: 2rem;
-      }
-      h1 {
-        font-size: 6rem;
-        margin: 0 0 1rem 0;
-        color: #f43f5e;
-        font-weight: 800;
-        line-height: 1;
-      }
-      p {
-        font-size: 1.5rem;
-        color: #64748b;
-        margin: 0 0 2rem 0;
-      }
-      a {
-        color: #f43f5e;
-        text-decoration: none;
-        border: 1px solid #f43f5e;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.2s ease;
-      }
-      a:hover {
-        background: #f43f5e;
-        color: #0f172a;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>404</h1>
-      <p>Page Not Found</p>
-      <a href="/">Go Home</a>
-    </div>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --text: #94a3b8;
+      --muted: #334155;
+      --accent: #6366f1;
+      --accent-glow: rgba(99,102,241,0.15);
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .wrap {
+      text-align: center;
+      max-width: 420px;
+    }
+    .code {
+      font-size: clamp(6rem, 20vw, 9rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -4px;
+      background: linear-gradient(135deg, #6366f1 0%, #a78bfa 50%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1.5rem;
+    }
+    .label {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.02em;
+    }
+    .desc {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+      line-height: 1.6;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      padding: 0.65rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.15s;
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .divider {
+      width: 40px;
+      height: 2px;
+      background: var(--border);
+      margin: 2rem auto;
+      border-radius: 2px;
+    }
+    .hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="code">404</div>
+    <div class="label">Page not found</div>
+    <p class="desc">The page you're looking for doesn't exist or has been moved.</p>
+    <a class="btn" href="/">&#8592; Go home</a>
+    <div class="divider"></div>
+    <p class="hint">If you typed the URL manually, double-check for typos.</p>
+  </div>
+</body>
 </html>
 `;

@@ -1,6 +1,6 @@
 {
   "name": "sommark-web",
-  "version": "2.1.4",
+  "version": "3.0.0",
   "description": "SomMark Web is a lightweight web framework and high-performance Static Site Generation using Vite and the SomMark engine.",
   "keywords": [
     "framework",
@@ -24,6 +24,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./variables": {
+      "types": "./dist/variables/index.d.ts",
+      "import": "./dist/variables/index.js",
+      "require": "./dist/variables/index.cjs"
     }
   },
   "files": [
@@ -37,12 +42,19 @@
     "vite": "^8.0.10"
   },
   "peerDependencies": {
+    "esbuild": ">=0.18.0",
     "typescript": "^5",
     "vite": "^5.0.0 || ^6.0.0 || ^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": false
+    }
   },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "dev:dev": "npm run build && cd dev && vite",
     "lint": "tsc --noEmit",
     "test": "bun test",
     "prepublishOnly": "bun run test && bun run lint && bun run build"
@@ -50,6 +62,6 @@
   "dependencies": {
     "ora": "^9.4.0",
     "picocolors": "^1.1.1",
-    "sommark": "^4.5.3"
+    "sommark": "^5.2.1"
   }
 }
