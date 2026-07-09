@@ -11,103 +11,50 @@
 </p>
 
 <p align="center">
-  <strong>The structural foundation for your modern web content.</strong>
+  <strong>Static site generation powered by the SomMark engine.</strong>
 </p>
 
 ---
 
 ## What is SomMark Web?
 
-SomMark Web is a **lightweight web framework** and high-performance **Static Site Generation (SSG)** using Vite and the SomMark engine. It is powered by the **SomMark Engine**, an extensible markup language designed to be the **structural foundation** of your content.
+SomMark Web is a lightweight web framework and high-performance Static Site Generation (SSG) using Vite and the SomMark engine. It is powered by the SomMark Engine, a template language designed to be the structural foundation of your content.
 
-## Key Features
+## Features
 
-- **Module System**: Build reusable layouts and components.
-- **Auto-Routing**: Add a `.smark` file to `src/pages` and it becomes a web page automatically.
-- **Fast Development**: See your changes instantly as you type with instant hot reloading (HMR).
-- **Vite Preview Support**: Access clean URLs (like `/about`) and custom `404.html` fallbacks during preview.
-- **SEO Automation**: Automatic generation of `sitemap.xml` and `robots.txt` plus built-in SEO auditor checks.
-- **Small & Fast**: No runtime bundle weight, compiling directly to clean, minimal HTML.
+- **Auto-routing** — Every `.smark` file in `src/pages` is a page.
+- **Dynamic routing** — Data-driven pages generated per slug from any async data source.
+- **Module system** — Reusable layouts and components with `[import]` and `[slot]`.
+- **Built-in api(s)** — `getPages()`, `getMetadata()`, `getHeadings()`, `glob()`, `getData()`, and more available in every file.
+- **SEO automation** — Generates `sitemap.xml`, `robots.txt`, and audits pages on build.
+- **HMR** — Changes reflect instantly in the browser during development.
+- **Zero runtime weight** — Compiles to plain HTML. No framework JS shipped to the browser unless you add it.
 
-## Quick Start
+## Quick Start 
 
-### The Recommended Way
-
-The fastest way to start a new SomMark Web project is using the official CLI. This will set up a **complete, ready-to-use project template** for you:
+Installs a ready-to-use project template so you can start a SomMark Web site immediately.
 
 ```bash
 npx create-sommark-web@latest
 ```
 
-Follow the prompts to get your site running instantly.
+## Use as a Plugin
 
----
-
-### Manual Installation
-
-If you prefer to set things up yourself:
-
-#### 1. Install
+Already have a Vite project? Install SomMark Web as a plugin and drop it into your existing setup.
 
 ```bash
 npm install sommark-web
 ```
 
-OR
-
-```bash
-bun add sommark-web
-```
-
-
-#### 2. Add to Vite
-
-Add the plugin to your `vite.config.ts`:
-
 ```typescript
+// vite.config.ts
 import { defineConfig } from "vite";
 import sommarkWeb from "sommark-web";
 
 export default defineConfig({
-  plugins: [
-    sommarkWeb()
-  ]
+  plugins: [sommarkWeb()]
 });
 ```
-
-### Quick Example
-
-#### 1. Create your Layout (`src/layouts/Layout.smark`)
-This is optional, if you don't create a layout, the page will be rendered without a layout. But it is useful to avoid code repetition.
-```ini
-[DOCTYPE !]
-[html = lang: "en"]
-  [head]
-    [title]v{title}[end]
-    [link = rel: "stylesheet", href: "/src/style.css" !]
-  [end]
-  [body]
-    [main]
-      [slot !]
-    [end]
-  [end]
-[end]
-```
-
-#### 2. Create your Page (`src/pages/index.smark`)
-
-```ini
-[import = Layout: "../layouts/Layout.smark" !]
-
-[Layout = title: "My Website"]
-  [h1]Welcome to SomMark Web![end]
-  [p]This content is injected directly into the layout slot.[end]
-[end]
-```
-
-## Why use it?
-
-If you are tired of complex frameworks and want to focus on **content and structure**, SomMark Web is for you. It combines the power of a modern build tool with the simplicity of a block-based language.
 
 ## License
 
