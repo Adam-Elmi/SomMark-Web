@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { resolveSmarkFile, auditSEO, scanPages } from "../src/index";
+import { resolveSmarkFile, scanPages } from "../src/pages";
+import { auditSEO } from "../src/seo";
 import { getMetadata, getHeadings, glob } from "../src/variables/index";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -12,6 +13,7 @@ describe("SomMark Web Plugin Unit Tests", () => {
     await fs.writeFile(path.join(testDir, "index.smark"), "root page");
     await fs.writeFile(path.join(testDir, "about.smark"), "about page");
     await fs.mkdir(path.join(testDir, "posts"), { recursive: true });
+    await fs.writeFile(path.join(testDir, "posts", "index.smark"), "posts index");
     await fs.writeFile(path.join(testDir, "posts", "hello.smark"), "nested page");
     await fs.mkdir(path.join(testDir, "posts", "archive"), { recursive: true });
     await fs.writeFile(path.join(testDir, "posts", "archive", "_layout.smark"), "layout");
@@ -53,6 +55,15 @@ describe("SomMark Web Plugin Unit Tests", () => {
       expect(urls).toContain("/");
       expect(urls).toContain("/about");
       expect(urls).toContain("/posts/hello");
+    });
+
+    it("nested index.smark should produce clean URL without trailing slash", async () => {
+      const results = await scanPages(testDir);
+      const urls = results.map((r) => r.url);
+      // posts/index.smark → /posts, not /posts/ or /posts/index
+      expect(urls).toContain("/posts");
+      expect(urls).not.toContain("/posts/");
+      expect(urls).not.toContain("/posts/index");
     });
 
     it("should exclude _layout.smark files", async () => {
