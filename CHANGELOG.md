@@ -2,6 +2,57 @@
 
 All changes to **SomMark Web** are recorded here.
 
+## [3.1.0] - 2026-07-13
+
+### Added
+
+- **`themeScript(preset, options?)`** — Exported helper that generates a small blocking script to set a theme attribute on `<html>` before the first paint, eliminating flash of unstyled content (FOUC). Pass the result to the `themeScript` plugin option.
+
+  ```ts
+  import sommarkWeb, { themeScript } from "sommark-web";
+
+  sommarkWeb({
+    themeScript: themeScript("dark-mode"),
+    // options: storageKey, attribute, default
+  })
+  ```
+
+  The script reads `localStorage` and the system color-scheme preference, then sets `data-theme="light"` or `data-theme="dark"` on `<html>` synchronously — before any CSS is parsed.
+
+### Fixed
+
+- **`[script]` and `[link]` blocks produced broken HTML** — Inline script content was HTML-escaped (making the JavaScript invalid) and external scripts received an empty `src=""`. Same issue affected `[link]` tags. The incorrect mapper overrides have been removed.
+
+- **`getData()` and `getPages()` crashed with `ReferenceError`** — Bridge functions referenced closure variables that did not exist inside the QuickJS sandbox. They now correctly reference the variables passed into the sandbox.
+
+- **Live reload did not pick up changes in imported files** — Editing a `.js`, `.json`, or other file imported by a `.smark` page did not trigger a browser reload. The dev server now watches all project files and reloads on any change.
+
+- **Build silently dropped a page when two route URLs produced the same key** — Routes like `/a/b` and `/a-b` both mapped to the Rollup entry key `a-b`, causing one page to be silently overwritten. The separator is now `__` to avoid collisions.
+
+- **Build crashed when two pages had identical CSS** — Both pages generated the same MD5 hash filename, causing Rollup to throw `"Cannot emit asset with the same filename"`. The page's own path is now included in the filename.
+
+- **Page CSS was missing when the site was deployed to a subdirectory** — The CSS `<link>` href was hardcoded with a `/` prefix and did not respect Vite's `base` config option. It now uses the configured base path.
+
+- **Dev server dropped CSS from `[style]` blocks** — The dev server middleware called only `getTranspiledHtml` and never injected the CSS extracted from `[style]` blocks. Pages that relied on inline styles were completely unstyled in dev mode.
+
+- **Dev server hung when a dynamic page had a compile error on first visit** — The headings pre-pass ran outside the error handler. A compile error caused an unhandled rejection with no response sent to the browser. The compile step is now inside the error handler.
+
+- **All dynamic routes returned 404 after saving `smark.config.js`** — The config reload cleared the dynamic route table but never rebuilt it. Dynamic routes now rebuild automatically after a config reload.
+
+- **`404.smark` compile errors were not shown** — When `404.smark` had a compile error, the catch block logged it but sent no response, handing the request to Vite's default handler. The SomMark error overlay is now shown instead.
+
+- **Heading changes on dynamic pages did not appear after live reload** — The cached heading list was never cleared on `.smark` file changes. Headings are now reset alongside the page cache on every reload.
+
+- **`__headings` was always empty in `runtime` blocks on dynamic pages** — The JavaScript for a dynamic page was compiled using a cache key that excluded the heading data, while the HTML was compiled with it. Both now use the same key.
+
+- **Vite internal requests were caught by SomMark's 404 handler** — Paths like `/__vite_ping`, `/@fs/`, and `/@id/` have no file extension, so they fell into the 404 branch. All paths starting with `/@` or `/__` are now passed through to Vite's own handlers.
+
+### Changed
+
+- **Plugin source split into focused modules** — `src/index.ts` (previously 1 275 lines) has been split into `compiler.ts`, `types.ts`, `pages.ts`, `seo.ts`, `theme.ts`, and `error-html.ts`. Public API is unchanged.
+
+---
+
 ## [3.0.0] - 2026-07-09
 
 ### Added
