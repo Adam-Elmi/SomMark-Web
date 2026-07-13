@@ -1,6 +1,6 @@
 {
   "name": "sommark-web",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "SomMark Web is a lightweight web framework and high-performance Static Site Generation using Vite and the SomMark engine.",
   "keywords": [
     "framework",
