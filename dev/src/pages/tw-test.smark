@@ -1,0 +1,82 @@
+[head]
+  [meta = charset: "UTF-8"!]
+  [meta = name: "viewport", content: "width=device-width, initial-scale=1.0"!]
+  [title]Tailwind Test — SomMark[end:title]
+  [link = rel: "stylesheet", href: "/src/global.css"!]
+[end:head]
+
+[body = class: "bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200"]
+
+
+[header = class: "border-b border-gray-200 dark:border-gray-800 px-6 py-4"]
+  [div = class: "max-w-4xl mx-auto flex items-center justify-between"]
+    [span = class: "font-bold text-xl text-indigo-600 dark:text-indigo-400"]SomMark + Tailwind[end:span]
+    [button = id: "theme-btn", class: "px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors text-sm font-medium"][end:button]
+  [end]
+[end:header]
+
+[main = class: "max-w-4xl mx-auto px-6 py-12"]
+
+  [div = class: "mb-12"]
+    [h1 = class: "text-4xl font-extrabold tracking-tight mb-3"]Tailwind CSS is working[end:h1]
+    [p = class: "text-gray-500 dark:text-gray-400 text-lg"]Toggle the theme — no flash, full dark mode support via [code = class: "font-mono text-sm bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded"]data-theme[end:code].[end:p]
+  [end]
+
+  [div = class: "grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12"]
+    [div = class: "rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6"]
+      [div = class: "text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-1"]Static[end:div]
+      [p = class: "text-sm text-gray-500 dark:text-gray-400"]Compiled at build time[end:p]
+    [end]
+    [div = class: "rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6"]
+      [div = class: "text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1"]Dynamic[end:div]
+      [p = class: "text-sm text-gray-500 dark:text-gray-400"]Runtime from browser[end:p]
+    [end]
+    [div = class: "rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-6"]
+      [div = class: "text-2xl font-bold text-rose-600 dark:text-rose-400 mb-1"]Styled[end:div]
+      [p = class: "text-sm text-gray-500 dark:text-gray-400"]Zero FOUC[end:p]
+    [end]
+  [end]
+
+  [div = class: "rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-12"]
+    [div = class: "px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex items-center gap-2"]
+      [span = class: "w-3 h-3 rounded-full bg-red-400"][end]
+      [span = class: "w-3 h-3 rounded-full bg-yellow-400"][end]
+      [span = class: "w-3 h-3 rounded-full bg-green-400"][end]
+      [span = class: "ml-2 text-xs text-gray-400 font-mono"]getData("posts")[end:span]
+    [end]
+    [div = class: "divide-y divide-gray-100 dark:divide-gray-800"]
+      static ${
+        const posts = await getData("posts");
+        return SomMark.raw(posts.map(p => `
+<div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
+  <div>
+    <div class="font-medium">${p.title}</div>
+    <div class="text-sm text-gray-500 dark:text-gray-400">${p.date} · ${p.readTime}</div>
+  </div>
+  <a href="/posts/${p.slug}" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Read →</a>
+</div>`).join(""));
+      }$
+    [end]
+  [end]
+
+  [div = class: "flex gap-3 flex-wrap"]
+    [a = href: "/", class: "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"]← Home[end:a]
+    [a = href: "/api-test", class: "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:border-indigo-500 text-sm font-medium transition-colors"]API Test[end:a]
+  [end]
+
+[end:main]
+
+[end:body]
+
+runtime ${
+  const btn = document.getElementById("theme-btn");
+  const root = document.documentElement;
+  const sync = () => { btn.textContent = root.getAttribute("data-theme") === "dark" ? "☀️ Light" : "🌙 Dark"; };
+  sync();
+  btn.addEventListener("click", () => {
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme-value", next);
+    sync();
+  });
+}$

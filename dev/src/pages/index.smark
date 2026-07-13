@@ -15,14 +15,16 @@
   --surface: #F9FAFB;
   --border: #E5E7EB;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --text: #F3F4F6; --muted: #9CA3AF; --bg: #0F1117; --surface: #1A1F2E; --border: #2D3748; }
+html[data-theme="dark"] {
+  --text: #F3F4F6; --muted: #9CA3AF; --bg: #0F1117; --surface: #1A1F2E; --border: #2D3748;
 }
 body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; }
 
 .site-header { border-bottom: 1px solid var(--border); padding: 16px 0; }
 .header-inner { max-width: 760px; margin: 0 auto; padding: 0 24px; }
 .logo { font-weight: 800; font-size: 1.15rem; color: var(--accent); text-decoration: none; }
+.theme-btn { margin-left: auto; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 1rem; color: var(--text); transition: border-color 0.15s; }
+.theme-btn:hover { border-color: var(--accent); }
 
 .hero { max-width: 760px; margin: 0 auto; padding: 64px 24px 40px; }
 .hero-title { font-size: clamp(2rem, 6vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 16px; }
@@ -51,8 +53,22 @@ body { background: var(--bg); color: var(--text); font-family: system-ui, -apple
 [header = class: "site-header"]
 [div = class: "header-inner"]
 [a = class: "logo", href: "/"]SomMark Blog[end:a]
+[button = id: "theme-btn", class: "theme-btn"][end:button]
 [end]
 [end:header]
+
+runtime ${
+  const btn = document.getElementById("theme-btn");
+  const root = document.documentElement;
+  const update = () => { btn.textContent = root.getAttribute("data-theme") === "dark" ? "☀️" : "🌙"; };
+  update();
+  btn.addEventListener("click", () => {
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme-value", next);
+    update();
+  });
+}$
 
 [div = class: "hero"]
 [h1 = class: "hero-title"]A blog built with SomMark-Web[end:h1]

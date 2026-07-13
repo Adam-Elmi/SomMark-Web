@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
-import sommarkWeb from "sommark-web";
+import sommarkWeb, { themeScript } from "sommark-web";
+import tailwindcss from "@tailwindcss/vite";
 
 const posts = [
   {
@@ -47,7 +48,9 @@ function buildTagItems() {
 
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     sommarkWeb({
+      themeScript: themeScript("dark-mode"),
       dynamic: {
         posts: async () => posts,
         "tags":  async () => buildTagItems(),

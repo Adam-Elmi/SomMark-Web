@@ -8,7 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "sommark-web": "file:.."
+    "@tailwindcss/vite": "^4.3.2",
+    "sommark-web": "file:..",
+    "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
     "vite": "^8.0.10"

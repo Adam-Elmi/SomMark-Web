@@ -1,0 +1,4 @@
+runtime ${
+const pkg = {version: 5};
+console.log(pkg.version);
+}$
