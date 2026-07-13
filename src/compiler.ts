@@ -16,6 +16,7 @@ export interface CompilerContext {
   pagesDir: string;
   dualCache: Map<string, { html: string; css: string; js: string }>;
   globCache: Map<string, any>;
+  fileMetaCache: Map<string, { mtime: number; data: any }>;
   dataCache: Map<string, any[]>;
   dynamicRouteMap: Map<string, DynamicRouteEntry>;
   compileQueue: Promise<void>;
@@ -41,10 +42,20 @@ export function createCompiler(ctx: CompilerContext) {
       const filePath = relPath.replace(/\\/g, "/");
       const absPath = path.join(ctx.projectRoot, filePath);
       if (isLayoutFile(absPath)) continue;
+
+      const fileStat = await stat(absPath);
+      const mtime = fileStat.mtimeMs;
+
+      // Per-file cache: skip re-reading/re-parsing if file hasn't changed
+      const cached = ctx.fileMetaCache.get(absPath);
+      if (cached && cached.mtime === mtime) {
+        results.push(cached.data);
+        continue;
+      }
+
       const src = await readFile(absPath, "utf-8");
       const nodes = parseSync(src);
-      const fileStat = await stat(absPath);
-      const lastUpdate = new Date(fileStat.mtimeMs).toISOString();
+      const lastUpdate = new Date(mtime).toISOString();
       const metaNode = nodes.find((n: any) => n.type === "Block" && (n.id === "Metadata" || n.id === "metadata"));
       const metadata: Record<string, any> = metaNode ? await transpileProps(metaNode.props) : {};
       const headings: any[] = [];
@@ -67,7 +78,9 @@ export function createCompiler(ctx: CompilerContext) {
       const slug = url || "index";
       url = "/" + url;
       const title = metadata.title || firstH1?.text || slug;
-      results.push({ url, filePath, metadata, headings, title, lastUpdate });
+      const entry = { url, filePath, metadata, headings, title, lastUpdate };
+      ctx.fileMetaCache.set(absPath, { mtime, data: entry });
+      results.push(entry);
     }
     return results;
   };
@@ -157,6 +170,11 @@ export function createCompiler(ctx: CompilerContext) {
       const smarkData = await fetchAllData();
       const smarkPages = await fetchAllPages();
 
+      // Pre-compute glob results at Node.js level (uses fileMetaCache per file)
+      // and inject as JSON so QuickJS glob() skips all file I/O.
+      const preGlobEntries = await hostGlob(pagesDirRel + "/**/*.smark");
+      const __smarkGlobCache = JSON.stringify(preGlobEntries);
+
       const [html, css, js] = await new SomMark({
         src: entryContent,
         format: "html",
@@ -182,6 +200,7 @@ export function createCompiler(ctx: CompilerContext) {
           __isDev: !ctx.isBuild,
           ...ctx.smarkConfig.variables,
           ...ctx.options.variables,
+          __smarkGlobCache,
           glob: smarkGlob,
           getMetadata,
           getHeadings,

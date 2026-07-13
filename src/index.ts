@@ -36,6 +36,7 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
 
   const dualCache = new Map<string, { html: string; css: string; js: string }>();
   const globCache = new Map<string, any>();
+  const fileMetaCache = new Map<string, { mtime: number; data: any }>();
   const dataCache = new Map<string, any[]>();
   const dynamicRouteMap = new Map<string, DynamicRouteEntry>();
   const seoWarningsMap = new Map<string, string[]>();
@@ -51,6 +52,7 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
     get pagesDir() { return pagesDir; },
     dualCache,
     globCache,
+    fileMetaCache,
     dataCache,
     dynamicRouteMap,
     compileQueue: Promise.resolve() as Promise<void>,
@@ -523,6 +525,7 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
       } else if (file.endsWith(".smark")) {
         dualCache.clear();
         globCache.clear();
+        fileMetaCache.delete(file);
         for (const entry of dynamicRouteMap.values()) entry.headings = undefined;
         for (const mod of server.moduleGraph.idToModuleMap.values()) {
           if (mod.id && (mod.id.startsWith("\0sommark-runtime:") || mod.id.startsWith("\0sommark-dynamic-runtime:"))) {
@@ -530,7 +533,7 @@ export default function sommarkPlugin(options: SomMarkPluginOptions = {}): Plugi
           }
         }
         server.ws.send({ type: "full-reload" });
-      } else if (file.startsWith(projectRoot) && !file.includes("node_modules")) {
+      } else if (file.startsWith(projectRoot) && !file.includes("node_modules") && file.endsWith(".js")) {
         dualCache.clear();
         globCache.clear();
         server.ws.send({ type: "full-reload" });
