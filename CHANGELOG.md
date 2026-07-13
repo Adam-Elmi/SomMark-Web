@@ -2,6 +2,12 @@
 
 All changes to **SomMark Web** are recorded here.
 
+## [3.1.1] - 2026-07-13
+
+### Fixed
+- When any file in the project changes — CSS, JavaScript, images, fonts, JSON, anything — sommark-web intercepts the Vite hot update event, clears all compiled page caches, and forces a full page reload.
+
+
 ## [3.1.0] - 2026-07-13
 
 ### Added
